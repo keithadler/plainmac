@@ -26,3 +26,6 @@ jobs:
       # this app is for: both programs agreeing about what a file is because they run the same code.
       - name: The engine has not drifted from plainwin
         run: tests/engine-sync.sh
+
+      - name: The README's claims have to be true
+        run: tests/docs.sh

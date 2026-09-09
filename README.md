@@ -51,17 +51,26 @@ written by LibreOffice showed every heading as a bullet, on both platforms, and 
 
 ## What it does
 
-**Spreadsheets.** Cells, text and formulas across every sheet, with the columns at the widths the file asks for and
-joined cells drawn as one. Type into a cell and what you are editing is what the file holds, not what is shown.
+**Spreadsheets.** Cells, text and formulas across every sheet, at the widths the file asks for, with joined cells
+drawn as one. Sort, take out rows that say the same thing, split a column. Insert and delete rows and columns, and
+every formula in the workbook is rewritten so it still means what it meant. Colour, alignment, wrapping, borders,
+number formats, bold. Column widths and row heights. Freeze rows and columns. Add, rename, move and remove sheets,
+with every formula that named a renamed sheet following it. Ask any cell what it reads and what reads it. What the
+selection adds up to is on the status line, and what is already in the column is offered as you type.
 
-**Documents.** Headings, paragraphs, lists and tables, laid out as what they are. Speaker-quality plain text, not a
-guess at Word's pagination.
+**Documents.** Headings, paragraphs, lists and tables, laid out as what they are, with rows you can add and remove.
+Page headers and footers. Links you can follow, edit or create. Comments and tracked changes. Pictures you can put
+in and describe.
 
-**Presentations.** The text on every slide, and the speaker notes that travel with every copy of the deck and that
-nobody sees on the slide.
+**Presentations.** The text on every slide, the speaker notes that travel with every copy and that nobody sees on
+the slide, and slides you can add, remove and reorder.
 
-**All three.** Undo and redo. Find. A list of what the file would carry with it if you sent it. And the promise,
-checkable from the menu on whatever you have open.
+**All three.** Undo and redo. Find, and find and replace. Search a whole folder. Compare two versions. Save as PDF
+with page setup, or as CSV. Document properties. A list of what the file would carry with it if you sent it. And
+the promise, checkable from the menu on whatever you have open.
+
+**The keyboard does what a spreadsheet's keyboard does.** Arrows move; Command with an arrow goes to the end of the
+run of filled cells or across a gap to the next thing; Home and End go to the corners; typing starts editing.
 
 ![Plain for Mac showing a document](docs/screenshots/doc.png)
 
@@ -76,9 +85,6 @@ by where it lives in the package.
 - **No page layout.** Matching Word's pagination needs Word's own fonts and line breaking. Plain shows a document
   as one scrolling column and says so.
 - **It does not draw shapes, charts or pictures in place.** They are kept and listed.
-- **Fewer editing features than the Windows app so far.** The engine can sort, filter, colour, add sheets and much
-  more; this app has not wired those to controls yet. What is here is opening, reading, editing text and cells,
-  speaker notes, undo, find, and saving.
 - **It has never been opened in Microsoft Office.** Everything is checked against LibreOffice, against macOS's own
   PDF engine, and against the byte-for-byte round trip.
 - **Not a replacement for Office.** It is what to reach for when you need to change three words in a contract
@@ -104,8 +110,10 @@ plainmac set <file> <ref> <value> change one cell, then save
 plainmac hidden <file>            what this file would carry with it
 plainmac preserved <file>         the parts Plain keeps but will not draw
 plainmac roundtrip <file>...      prove that a save changes nothing
+plainmac do <op> [--name value]   any of the thirty operations, for scripts
 plainmac selftest
-plainmac help | version
+plainmac version
+plainmac help
 ```
 
 Exit codes: 0 fine, 1 something to look at, 2 problem, 64 usage.
