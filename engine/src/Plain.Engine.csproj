@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The engine, as a native library the Mac app links.
+
+    Plain for Mac does not have its own idea of what a .docx is. It uses the same engine as Plain for Windows,
+    compiled ahead of time to native code, so the promise the whole program rests on is not reimplemented and
+    then hoped to match: it is the identical code, guarded by the identical checks.
+
+    Nothing of .NET ships in the app. This produces one dylib with no runtime to install and nothing to find at
+    startup, which is why the app is an ordinary Mac application rather than something that needs a framework.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <AssemblyName>PlainEngine</AssemblyName>
+    <RootNamespace>Plain.Engine</RootNamespace>
+
+    <!-- The app formats numbers and dates itself, in the user's language. The engine only needs the invariant
+         rules, and leaving out the globalisation data keeps the library small. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Plain.Core/Plain.Core.csproj" />
+  </ItemGroup>
+
+</Project>

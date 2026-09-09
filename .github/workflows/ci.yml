@@ -1,0 +1,15 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    # Pin to macos-26 when the app uses macOS 26 SDK types (SpeechAnalyzer,
+    # FoundationModels): older runners cannot compile them even behind
+    # #available guards, because the symbols are not in their SDK at all.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: swift --version
+      - run: swift build
+      - run: .build/debug/Plain selftest
+      - run: swift test
+      - run: tests/integration.sh

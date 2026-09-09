@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+engine/out/
+engine/out-osx-*/
+engine/*/bin/
+engine/*/obj/
+engine/Promo.swift.later
+*.dmg
+.DS_Store

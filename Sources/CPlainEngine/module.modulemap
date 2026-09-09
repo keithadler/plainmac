@@ -1,0 +1,4 @@
+module CPlainEngine {
+    header "include/PlainEngine.h"
+    export *
+}
