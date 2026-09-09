@@ -245,6 +245,14 @@ enum CLI {
         do {
             let engine = try Engine.selfTest()
             out("engine: \(engine.summary)")
+
+            // A check that skips prints like a check that passed. An installed app has no fixture documents
+            // beside it, so about half the engine's suite cannot run, and saying 493 without saying why would
+            // read as the whole thing. This is the third time that trap has been walked into.
+            if !Engine.hasFixtures {
+                out("        That is the part of the suite that needs no documents to work on. "
+                    + "The rest runs from a clone of the repository, where the files are.")
+            }
             if engine.failed > 0 {
                 out(engine.output)
                 return 1

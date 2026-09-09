@@ -68,8 +68,14 @@ enum Engine {
     ///
     /// Without this the suites that need a real .docx skip, and a skip prints like a pass: the engine reports
     /// half its checks and says nothing is wrong. Plain for Windows was caught by exactly this.
+    /// True when the fixture files were found, so the caller can say which suite was actually run.
+    private(set) static var hasFixtures = false
+
     static func pointAtFixtures() {
-        guard ProcessInfo.processInfo.environment["PLAIN_FIXTURES"] == nil else { return }
+        if let set = ProcessInfo.processInfo.environment["PLAIN_FIXTURES"] {
+            hasFixtures = FileManager.default.fileExists(atPath: set + "/sheet.xlsx")
+            return
+        }
 
         var here = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
         for _ in 0..<8 {
@@ -77,6 +83,7 @@ enum Engine {
             let candidate = here.appendingPathComponent("tests/fixtures")
             if FileManager.default.fileExists(atPath: candidate.appendingPathComponent("sheet.xlsx").path) {
                 setenv("PLAIN_FIXTURES", candidate.path, 1)
+                hasFixtures = true
                 return
             }
         }
