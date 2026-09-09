@@ -30,6 +30,11 @@ struct PlainApp: App {
     }
 }
 
+extension Notification.Name {
+    static let plainFind = Notification.Name("plainFind")
+    static let plainCarries = Notification.Name("plainCarries")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
 
@@ -58,6 +63,19 @@ struct PlainCommands: Commands {
             Button("Open…") { Files.open(into: model) }
                 .keyboardShortcut("o")
         }
+        CommandGroup(replacing: .undoRedo) {
+            Button("Undo") { model.undo() }
+                .keyboardShortcut("z")
+                .disabled(!model.canUndo)
+            Button("Redo") { model.redo() }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!model.canRedo)
+        }
+        CommandGroup(after: .toolbar) {
+            Button("Find…") { NotificationCenter.default.post(name: .plainFind, object: nil) }
+                .keyboardShortcut("f")
+                .disabled(model.path == nil)
+        }
         CommandGroup(replacing: .saveItem) {
             Button("Save") { model.save() }
                 .keyboardShortcut("s")
@@ -65,6 +83,10 @@ struct PlainCommands: Commands {
             Divider()
             Button("Check this file comes back byte for byte") { model.checkPromise() }
                 .disabled(model.path == nil)
+            Button("What this file would carry with it…") {
+                NotificationCenter.default.post(name: .plainCarries, object: nil)
+            }
+            .disabled(model.path == nil)
         }
         CommandGroup(replacing: .help) {
             Button("Plain Help") { Help.show() }

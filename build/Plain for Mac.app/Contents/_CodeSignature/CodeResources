@@ -4,6 +4,10 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AppIcon.icns</key>
+		<data>
+		kuZCHfPJPb+Otg8PkRzbg3as2gE=
+		</data>
 		<key>Resources/Help.es.html</key>
 		<data>
 		2jmj7l5rSw0yVb/vlWAYkK/YBwk=
@@ -37,10 +41,17 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			2Dvs0npqlLNTPD8K8eOtPNWau68=
+			tbrgR+M0Ahk0VQIzps09alExiPg=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"d83becd27a6a94b3533c3f0af1e3ad3cd59abbaf"</string>
+			<string>cdhash H"b5bae047e334021934550233a6cd3d6a513188f8"</string>
+		</dict>
+		<key>Resources/AppIcon.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			bHWmyMhYu0QslA+1qAV/ZEptiBMtAs+l6WbrVq19k44=
+			</data>
 		</dict>
 		<key>Resources/Help.es.html</key>
 		<dict>

@@ -122,6 +122,63 @@ enum EngineSuite {
             let after = try Engine.open(path)
             t.check(after.parts.read > 0, "the two hundred and first call answers like the first")
         },
+
+        TestCase(name: "a change can be taken back") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            let model = PlainModel()
+            model.open(path)
+
+            t.check(!model.canUndo, "nothing to undo to begin with")
+            model.change(Edit(what: .cell(sheet: "", reference: "A1", value: "first")))
+            model.change(Edit(what: .cell(sheet: "", reference: "A1", value: "second")))
+            t.equal(model.edits.count, 1, "two changes to one cell are one change to save")
+            t.check(model.canUndo, "and there is something to undo")
+
+            model.undo()
+            t.equal(model.edits.count, 1, "undoing the second leaves the first")
+            if case let .cell(_, _, value) = model.edits.first?.what { t.equal(value, "first", "and it is the first one") }
+
+            model.undo()
+            t.check(model.edits.isEmpty, "undoing the first leaves nothing to save")
+            t.check(!model.dirty, "so the file has no unsaved changes")
+            t.check(!model.canUndo, "and there is nothing left to undo")
+        },
+
+        TestCase(name: "undone changes can be done again") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            let model = PlainModel()
+            model.open(path)
+            model.change(Edit(what: .cell(sheet: "", reference: "B2", value: "Woodland Ave")))
+            model.undo()
+            t.check(model.canRedo, "there is something to do again")
+            model.redo()
+            t.equal(model.edits.count, 1, "and doing it again puts it back")
+            t.check(!model.canRedo, "with nothing left to redo")
+        },
+
+        TestCase(name: "a new change forgets what was undone") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            let model = PlainModel()
+            model.open(path)
+            model.change(Edit(what: .cell(sheet: "", reference: "C3", value: "one")))
+            model.undo()
+            model.change(Edit(what: .cell(sheet: "", reference: "D4", value: "two")))
+            t.check(!model.canRedo, "redo would put back something that no longer follows")
+        },
+
+        TestCase(name: "undoing everything means there is nothing to write") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            let before = try Data(contentsOf: URL(fileURLWithPath: path))
+
+            let model = PlainModel()
+            model.open(path)
+            model.change(Edit(what: .cell(sheet: "", reference: "A1", value: "typed then taken back")))
+            model.undo()
+            model.save()
+
+            let after = try Data(contentsOf: URL(fileURLWithPath: path))
+            t.check(before == after, "the file on disk is exactly as it was found")
+        },
     ])
 
     // ---------- files to work on ----------

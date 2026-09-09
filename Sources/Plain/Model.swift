@@ -86,6 +86,17 @@ final class PlainModel: ObservableObject {
     /// What has been changed and not yet written. Kept in order, one per place.
     @Published private(set) var edits: [Edit] = []
 
+    /// Every change, with what was there before it, so it can be taken back.
+    ///
+    /// Undo here works on what has not been saved yet, which is the whole of what the app has changed: the file
+    /// on disk is untouched until Save. Undoing everything therefore leaves the file exactly as it was found,
+    /// which is the same promise the program makes about saving.
+    private var history: [(edit: Edit, before: Edit?)] = []
+    private var undone: [(edit: Edit, before: Edit?)] = []
+
+    var canUndo: Bool { !history.isEmpty }
+    var canRedo: Bool { !undone.isEmpty }
+
     var dirty: Bool { !edits.isEmpty }
     var name: String { path.map { ($0 as NSString).lastPathComponent } ?? "Plain" }
 
@@ -153,8 +164,44 @@ final class PlainModel: ObservableObject {
     }
 
     func change(_ edit: Edit) {
+        let before = edits.first { $0.place == edit.place }
         edits.removeAll { $0.place == edit.place }
         edits.append(edit)
+        history.append((edit, before))
+        undone.removeAll()
+    }
+
+    /// Take back the last change. What was there before it comes back, on screen and in what will be saved.
+    func undo() {
+        guard let last = history.popLast() else { return }
+        undone.append(last)
+        apply(place: last.edit.place, to: last.before)
+        said = "Took back the last change."
+    }
+
+    func redo() {
+        guard let next = undone.popLast() else { return }
+        history.append(next)
+        apply(place: next.edit.place, to: next.edit)
+        said = "Did it again."
+    }
+
+    /// Put a place back to a given edit, or to how the file has it when there is none.
+    private func apply(place: String, to edit: Edit?) {
+        edits.removeAll { $0.place == place }
+        if let edit { edits.append(edit) }
+
+        switch edit?.what {
+        case let .cell(_, reference, value):
+            showTyped(reference: reference, value: value)
+        case .none:
+            // Nothing to put back means the file's own value, so read it again.
+            if let path, screen != nil { screen = try? Engine.cells(path: path, sheet: sheet, top: 1, left: 1, rows: 200, columns: 40) }
+            if let path, document != nil { document = try? Engine.blocks(path) }
+            if let path, deck != nil { deck = try? Engine.slides(path) }
+        default:
+            break
+        }
     }
 
     /// Write everything at once, so a save either happens or does not.
@@ -163,12 +210,20 @@ final class PlainModel: ObservableObject {
         do {
             let saved = try Engine.save(path: path, edits: edits.map(\.asJSON))
             edits = []
+            history = []
+            undone = []
             said = "Saved. \(saved.parts.rewritten) of \(saved.parts.read) parts rewritten, "
                  + "\(saved.parts.kept) kept byte for byte."
             open(path)
         } catch {
             failed = error.localizedDescription
         }
+    }
+
+    /// What the file carries that is not on the page, for showing before it is sent.
+    func whatItCarries() -> [Engine.Hidden.Finding] {
+        guard let path else { return [] }
+        return (try? Engine.hidden(path))?.found ?? []
     }
 
     /// The promise, checked on the file in front of you.
