@@ -283,14 +283,18 @@ enum EngineSuite {
             t.check(true, "somebody offline gets no message")
         },
 
-        TestCase(name: "when one is found, the window is told") { t in
-            let model = PlainModel()
-            t.check(model.newVersion == nil, "nothing to say to begin with")
+        TestCase(name: "when one is found, the windows are told") { t in
+            let was = AppState.shared.newVersion
+            defer { AppState.shared.newVersion = was }
 
-            // What checkIfDue does when the answer is a newer version.
-            model.newVersion = (version: "9.9.9", page: URL(string: "https://example.invalid/r")!)
-            t.check(model.newVersion != nil, "the window has something to show")
-            t.equal(model.newVersion?.version, "9.9.9", "and it is the version that was found")
+            AppState.shared.newVersion = nil
+            t.check(AppState.shared.newVersion == nil, "nothing to say to begin with")
+
+            // What checkIfDue does when the answer is a newer version. It belongs to the app rather than to one
+            // open file, so every window shows it.
+            AppState.shared.newVersion = AppState.Found(version: "9.9.9",
+                                                        page: URL(string: "https://example.invalid/r")!)
+            t.equal(AppState.shared.newVersion?.version, "9.9.9", "and it is the version that was found")
         },
 
         TestCase(name: "a version turned down is not offered again") { t in
@@ -298,6 +302,34 @@ enum EngineSuite {
             defer { Updates.skippedVersion = was }
             Updates.skippedVersion = "9.9.9"
             t.equal(Updates.skippedVersion, "9.9.9", "it remembers what was turned down")
+        },
+
+        // Opening a second file used to take the place of the first, because every window shared one model.
+        TestCase(name: "two files open at once do not disturb each other") { t in
+            guard let one = try? sampleWorkbook(), let two = try? sampleWorkbook() else {
+                t.skip("could not make two workbooks"); return
+            }
+            _ = try Engine.save(path: one, edits: [["what": "cell", "sheet": "", "reference": "A1", "value": "first file"]])
+            _ = try Engine.save(path: two, edits: [["what": "cell", "sheet": "", "reference": "A1", "value": "second file"]])
+
+            // A window each, which is what the app makes.
+            let a = PlainModel()
+            let b = PlainModel()
+            a.open(one)
+            b.open(two)
+
+            t.equal(a.path, one, "the first window still holds the first file")
+            t.equal(b.path, two, "and the second holds the second")
+            t.check(a.path != b.path, "they are not the same file")
+
+            // And a change in one is not a change in the other.
+            a.change(Edit(what: .cell(sheet: "", reference: "B2", value: "typed in the first")))
+            t.check(a.dirty, "the first window has an unsaved change")
+            t.check(!b.dirty, "and the second does not")
+
+            a.save()
+            t.check(!a.dirty, "saving the first settles it")
+            t.check(b.path == two, "and leaves the second where it was")
         },
     ])
 

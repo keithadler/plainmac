@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Plain opens the files it is asked to open. Putting back windows from a previous session on top of that
+	     gave people files they had not asked for, and a second window onto a file they had. -->
+	<key>NSQuitAlwaysKeepsWindows</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>

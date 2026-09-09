@@ -7,3 +7,4 @@ engine/*/obj/
 engine/Promo.swift.later
 *.dmg
 .DS_Store
+build/

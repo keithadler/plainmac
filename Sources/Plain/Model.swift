@@ -70,8 +70,6 @@ struct Edit: Equatable {
 
 @MainActor
 final class PlainModel: ObservableObject {
-    static let shared = PlainModel()
-
     @Published var path: String?
     @Published var opened: Engine.Opened?
     @Published var screen: Engine.Screen?
@@ -88,8 +86,6 @@ final class PlainModel: ObservableObject {
     /// Which slide the deck view has in front, so the menu can act on it.
     @Published var shownSlide = 1
 
-    /// A newer version, when the daily check found one. Shown as one line, never as a dialog.
-    @Published var newVersion: (version: String, page: URL)?
     @Published var failed: String?
 
     /// What has been changed and not yet written. Kept in order, one per place.

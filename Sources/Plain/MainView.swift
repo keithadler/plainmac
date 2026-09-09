@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 
 struct MainView: View {
     @EnvironmentObject var model: PlainModel
+    @ObservedObject private var app = AppState.shared
     @State private var finding = false
     @State private var looking = ""
     @State private var carrying = false
@@ -25,7 +26,7 @@ struct MainView: View {
             Divider()
 
             // A newer version, mentioned once and never insisted on. No dialog, no timer, no nagging.
-            if let found = model.newVersion {
+            if let found = app.newVersion {
                 UpdateBar(version: found.version, page: found.page)
                 Divider()
             }
@@ -87,18 +88,39 @@ struct MainView: View {
 /// The one row. Everything the app does that is worth a button is here, and nothing else is.
 private struct Controls: View {
     @EnvironmentObject var model: PlainModel
+    @Environment(\.openWindow) private var openWindow
+
+    /// Each file gets a window of its own, so opening a second one does not take the place of the first.
+    private func openFiles() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = Files.opens
+        panel.allowsMultipleSelection = true
+        panel.message = "Open a Word, Excel or PowerPoint file"
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { openWindow(value: url.path) }
+    }
+
+    private func make(_ kind: Files.Kind) {
+        guard let path = Files.chooseNew(kind) else { return }
+        do {
+            _ = try Engine.make(path)
+            openWindow(value: path)
+        } catch {
+            model.failed = error.localizedDescription
+        }
+    }
 
     var body: some View {
         HStack(spacing: 8) {
             Menu("New") {
-                Button("Spreadsheet") { Files.new(.spreadsheet, into: model) }
-                Button("Document") { Files.new(.document, into: model) }
-                Button("Presentation") { Files.new(.presentation, into: model) }
+                Button("Spreadsheet") { make(.spreadsheet) }
+                Button("Document") { make(.document) }
+                Button("Presentation") { make(.presentation) }
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
 
-            Button("Open") { Files.open(into: model) }
+            Button("Open") { openFiles() }
             Button("Save") { model.save() }.disabled(!model.dirty)
 
             if let opened = model.opened, let sheets = opened.shape.sheets, sheets.count > 1 {
@@ -671,7 +693,7 @@ private struct UpdateBar: View {
             Button("Not now") {
                 // Not asked about again until there is a version newer than this one.
                 Updates.skippedVersion = version
-                model.newVersion = nil
+                AppState.shared.newVersion = nil
             }
         }
         .padding(.horizontal, 12)

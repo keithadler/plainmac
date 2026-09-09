@@ -480,13 +480,16 @@ enum Files {
         UTType(filenameExtension: "pptx"), UTType(filenameExtension: "pptm"),
     ].compactMap { $0 }
 
+    /// Where a new file should go. Making it and opening a window for it is the caller's business, because a
+    /// window is the app's to open and not this view's.
     @MainActor
-    static func open(into model: PlainModel) {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = opens
-        panel.allowsMultipleSelection = false
-        panel.message = "Open a Word, Excel or PowerPoint file"
-        if panel.runModal() == .OK, let url = panel.url { model.open(url.path) }
+    static func chooseNew(_ kind: Kind) -> String? {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Untitled.\(kind.suffix)"
+        panel.message = "New \(kind.called.lowercased())"
+        if let type = UTType(filenameExtension: kind.suffix) { panel.allowedContentTypes = [type] }
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url.path
     }
 
     /// Save a sheet as comma separated values, the raw numbers rather than how they are shown.
@@ -555,23 +558,7 @@ enum Files {
         }
     }
 
-    /// A new file is written to disk before anything is typed into it, so there is nothing to lose if the Mac stops.
-    @MainActor
-    static func new(_ kind: Kind, into model: PlainModel) {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "Untitled.\(kind.suffix)"
-        panel.message = "New \(kind.called.lowercased())"
-        if let type = UTType(filenameExtension: kind.suffix) { panel.allowedContentTypes = [type] }
-        guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        do {
-            _ = try Engine.make(url.path)
-            model.open(url.path)
-            model.said = "Made \(url.lastPathComponent). It is on disk already, so there is nothing to lose."
-        } catch {
-            model.failed = error.localizedDescription
-        }
-    }
 }
 
 

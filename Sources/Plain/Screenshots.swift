@@ -61,7 +61,7 @@ enum Screenshots {
         do {
             let model = PlainModel()
             model.open(demo.appendingPathComponent("quarter.xlsx").path)
-            model.newVersion = (version: "1.1.0", page: URL(string: "https://example.invalid/r")!)
+            AppState.shared.newVersion = AppState.Found(version: "1.1.0", page: URL(string: "https://example.invalid/r")!)
 
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 720),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -76,6 +76,7 @@ enum Screenshots {
             let out = folder.appendingPathComponent("update.png")
             if (try? capture(window, to: out)) != nil { CLI.out("wrote \(out.path)"); wrote += 1 }
             window.orderOut(nil)
+            AppState.shared.newVersion = nil
         }
 
         // A brand new document, which is what somebody sees first and which looked like a blank page with
