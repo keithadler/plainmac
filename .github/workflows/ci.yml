@@ -2,14 +2,27 @@ name: CI
 on: [push, pull_request]
 jobs:
   test:
-    # Pin to macos-26 when the app uses macOS 26 SDK types (SpeechAnalyzer,
-    # FoundationModels): older runners cannot compile them even behind
-    # #available guards, because the symbols are not in their SDK at all.
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
+
+      # The engine is C#, compiled ahead of time into a native library. It has to exist before the Swift code
+      # will link, so it is built first, exactly as build-app.sh does locally.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
       - run: swift --version
-      - run: swift build
-      - run: .build/debug/Plain selftest
+      - name: The engine
+        run: engine/build.sh arm64
+
+      - run: swift build -c release
+      - name: The app's checks, and the engine's from inside it
+        run: .build/release/Plain selftest
       - run: swift test
-      - run: tests/integration.sh
+      - name: End to end through the command line
+        run: tests/integration.sh .build/release/Plain
+
+      # The engine here is a copy of the one in plainwin. A copy can drift, and drift would break the one thing
+      # this app is for: both programs agreeing about what a file is because they run the same code.
+      - name: The engine has not drifted from plainwin
+        run: tests/engine-sync.sh

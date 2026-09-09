@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plain for Mac</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --muted: #6e6e73; --bg: #fff; --card: #f5f5f7; --accent: #6b46c1; --line: #e5e5ea; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f5f5f7; --muted: #a1a1a6; --bg: #1c1c1e; --card: #2c2c2e; --accent: #b794f4; --line: #3a3a3c; } }
+  body { margin: 0; font: 15px/1.55 -apple-system, "SF Pro Text", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; } h1 small { display: block; font-size: 15px; font-weight: 400; color: var(--muted); }
+  h2 { font-size: 20px; margin: 36px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 20px 0 6px; } .muted { color: var(--muted); }
+  code, pre { font: 13px ui-monospace, "SF Mono", Menlo, monospace; } pre { background: var(--card); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px 16px; margin: 12px 0; } .warn { border-left: 4px solid #d9a400; }
+  nav a { margin-right: 14px; color: var(--accent); text-decoration: none; } a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; } td, th { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } th { color: var(--muted); font-weight: 600; font-size: 13px; }
+</style></head><body><main>
+
+<h1>Plain for Mac</h1>
+<p class="lead">Opens Word, Excel and PowerPoint files, edits the things you actually change, and never damages the rest.</p>
+
+<h2>The promise</h2>
+<p>Every editor that opens a <code>.docx</code> reads it into its own idea of a document and writes that idea back
+out. Whatever it has no room for is quietly gone: the chart, the macro, the tracked changes, the header nobody
+looked at. You change three words and hand back something subtly different.</p>
+<p>Plain opens the file as the package of parts it really is, and writes back every part it did not edit as the
+exact bytes it found. <strong>Open a file, save it without changing anything, and you get the same file back byte
+for byte.</strong></p>
+<p>The line at the bottom of the window counts it every time you save: <em>12 parts read, 6 kept byte for
+byte</em>. You can check it on your own documents from the File menu, or with
+<code>plainmac roundtrip ~/Documents/*.docx</code>.</p>
+
+<h2>The same engine as Plain for Windows</h2>
+<p>The part that understands the file format is the same code that Plain for Windows runs, compiled ahead of time
+into a native library this app links. Nothing of .NET ships and there is no runtime to install. The two programs
+therefore agree about what a file is by construction rather than by intention, and a bug found on one is fixed for
+both. Run <code>plainmac selftest</code> to see the engine's own thousand checks run from inside the app.</p>
+
+<h2>What it edits</h2>
+<p><strong>Spreadsheets.</strong> Cells, text and formulas across every sheet, at the widths the file asks for,
+with joined cells drawn as one. What you edit in a cell is what the file holds, not what is shown: editing what is
+shown would turn 25,000 into words.</p>
+<p><strong>Documents.</strong> Headings, paragraphs, lists and tables, laid out as what they are.</p>
+<p><strong>Presentations.</strong> The text on every slide, and the speaker notes that travel with every copy and
+that nobody sees on the slide.</p>
+
+<h2>The rail down the side</h2>
+<p>Everything the file carries that Plain will not draw: charts, macros, pivot tables, slide masters, headers and
+footers. It names them in plain words rather than by where they live inside the package, and every one of them is
+written back exactly as it was found.</p>
+
+<h2>Before you send it</h2>
+<p><strong>File &rarr; What this file would carry with it</strong> lists what travels with a file and is not on the
+page: who wrote it, comments, tracked changes, hidden sheets, speaker notes. Plain can only find what it knows to
+look for, so it is a list, not a promise that a file is safe.</p>
+
+<h2>Undo</h2>
+<p>Undo works on what has not been saved, which is everything the app has changed, because the file on disk is not
+touched until you save. Undoing everything therefore leaves the file exactly as it was found.</p>
+
+<h2>Honest limits</h2>
+<p>No page layout: matching Word's pagination needs Word's own fonts and line breaking, so Plain shows a document
+as one scrolling column and says so. It does not draw shapes, charts or pictures in place; they are kept and
+listed. It has fewer editing features than the Windows app so far. And it has never been opened in Microsoft
+Office: everything is checked against LibreOffice and against the byte-for-byte round trip.</p>
+
+<h2>Privacy</h2>
+<p>No account, no telemetry, no analytics. Nothing about you or your files leaves the Mac. The one network request
+is a daily check with GitHub for a newer version, which sends no identifier and nothing about your files, and which
+you can turn off in Settings.</p>
+
+<p class="small">Free, MIT, built by Keith Adler.
+<a href="https://github.com/keithadler/plainmac">github.com/keithadler/plainmac</a> &middot;
+<a href="https://keithadler.github.io">More from the same maker</a></p>
+
+</main></body></html>

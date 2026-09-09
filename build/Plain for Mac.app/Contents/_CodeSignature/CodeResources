@@ -10,11 +10,11 @@
 		</data>
 		<key>Resources/Help.es.html</key>
 		<data>
-		2jmj7l5rSw0yVb/vlWAYkK/YBwk=
+		daxxDL9mbZZovh73ImM0qGQv34c=
 		</data>
 		<key>Resources/Help.html</key>
 		<data>
-		2jmj7l5rSw0yVb/vlWAYkK/YBwk=
+		l5BV46X+adIz4EIMi8jVtqKrgT0=
 		</data>
 		<key>Resources/en.lproj/Localizable.strings</key>
 		<dict>
@@ -41,10 +41,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			tbrgR+M0Ahk0VQIzps09alExiPg=
+			zUzwMzMaumT03yO464rdlJCM7VE=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"b5bae047e334021934550233a6cd3d6a513188f8"</string>
+			<string>cdhash H"cd4cf033331aba64f4df23b8eb8add94908ced51"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
@@ -57,14 +57,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+			4E1k5OEwVrqwJoC89dGA7qynBFPbqwneXbE/O8d8/5s=
 			</data>
 		</dict>
 		<key>Resources/Help.html</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+			CkcoM2CWzXqGBHBbHGJuXMXykg3/x5/AIJk21pnstW8=
 			</data>
 		</dict>
 		<key>Resources/en.lproj/Localizable.strings</key>
