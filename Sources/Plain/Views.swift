@@ -14,6 +14,7 @@ struct SheetView: View {
     @State private var editing: String?
     @State private var typed = ""
     @State private var selection = Selection()
+    @State private var offered: String?
 
     private var cells: [String: Engine.Screen.Cell] {
         Dictionary(uniqueKeysWithValues: (model.screen?.cells ?? []).map { ($0.reference, $0) })
@@ -24,6 +25,92 @@ struct SheetView: View {
     private var lastColumn: Int { max((model.screen?.cells.map(\.column).max() ?? 0) + 4, 12) }
 
     var body: some View {
+        grid
+            .focusable()
+            .focusEffectDisabled()
+            .onKeyPress(phases: .down) { press in handle(press) }
+            .onChange(of: selection) { _, now in model.summarise(now) }
+            .onAppear { model.summarise(selection) }
+    }
+
+    /// Moving about with the keyboard, which is most of using a spreadsheet.
+    private func handle(_ press: KeyPress) -> KeyPress.Result {
+        guard editing == nil else { return .ignored }
+        let jumping = press.modifiers.contains(.command) || press.modifiers.contains(.control)
+        let extending = press.modifiers.contains(.shift)
+
+        func go(_ dx: Int, _ dy: Int) -> KeyPress.Result {
+            var column = selection.column, row = selection.row
+            if jumping {
+                // To the far end of the run of filled cells, or across a gap to the next thing there is.
+                (column, row) = jump(from: (column, row), dx: dx, dy: dy)
+            } else {
+                column = max(1, column + dx)
+                row = max(1, row + dy)
+            }
+            selection.move(to: column, row: row, extending: extending)
+            return .handled
+        }
+
+        switch press.key {
+        case .upArrow: return go(0, -1)
+        case .downArrow: return go(0, 1)
+        case .leftArrow: return go(-1, 0)
+        case .rightArrow: return go(1, 0)
+        case .home: selection.move(to: 1, row: 1, extending: extending); return .handled
+        case .end:
+            let sheet = model.opened?.shape.sheets?.first { $0.name == model.sheet }
+            selection.move(to: max(1, sheet?.lastColumn ?? 1), row: max(1, sheet?.lastRow ?? 1), extending: extending)
+            return .handled
+        case .tab: return go(press.modifiers.contains(.shift) ? -1 : 1, 0)
+        case .return:
+            begin(at: selection.column, selection.row, with: nil)
+            return .handled
+        case .delete, .deleteForward:
+            model.change(Edit(what: .cell(sheet: model.sheet ?? "", reference: selection.reference, value: "")))
+            model.showTyped(reference: selection.reference, value: "")
+            return .handled
+        default:
+            // Typing a character starts editing with it, the way a spreadsheet does.
+            let typed = press.characters
+            guard !typed.isEmpty, !jumping, typed.first!.isLetter || typed.first!.isNumber
+                    || "=+-.'\"".contains(typed.first!) else { return .ignored }
+            begin(at: selection.column, selection.row, with: typed)
+            return .handled
+        }
+    }
+
+    /// Where Ctrl with an arrow lands: the end of the run of filled cells, or across a gap to the next one.
+    private func jump(from: (Int, Int), dx: Int, dy: Int) -> (Int, Int) {
+        let filled = Set((model.screen?.cells ?? []).map { "\($0.column),\($0.row)" })
+        func has(_ c: Int, _ r: Int) -> Bool { filled.contains("\(c),\(r)") }
+
+        var (column, row) = from
+        let startedFilled = has(column, row)
+        var lastFilled = (column, row)
+
+        for _ in 0..<500 {
+            let (nc, nr) = (column + dx, row + dy)
+            if nc < 1 || nr < 1 { break }
+            let next = has(nc, nr)
+            (column, row) = (nc, nr)
+            if startedFilled {
+                if !next { (column, row) = lastFilled; break }
+                lastFilled = (column, row)
+            } else if next { break }
+        }
+        return (column, row)
+    }
+
+    private func begin(at column: Int, _ row: Int, with seed: String?) {
+        let reference = "\(Reference.name(column))\(row)"
+        let cell = cells[reference]
+        typed = seed ?? cell?.formula.map { "=" + $0 } ?? cell?.raw ?? ""
+        offered = nil
+        editing = reference
+    }
+
+    private var grid: some View {
         ScrollView([.horizontal, .vertical]) {
             Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                 GridRow {
@@ -71,6 +158,20 @@ struct SheetView: View {
                 .frame(width: width(column), height: 22)
                 .background(Color(nsColor: .textBackgroundColor))
                 .border(Color.accentColor, width: 1.5)
+                .onChange(of: typed) { _, now in
+                    // Offer what is already in the column. It is shown beside the cell rather than put into it,
+                    // so carrying on typing never has to fight something that was not asked for.
+                    offered = model.suggest(column: column, row: row, typed: now)
+                }
+                .overlay(alignment: .trailing) {
+                    if let offered, offered.count > typed.count {
+                        Text(offered.dropFirst(typed.count))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .padding(.trailing, 4)
+                            .allowsHitTesting(false)
+                    }
+                }
         } else {
             Text(cell?.show ?? "")
                 .font(.system(size: 12))
@@ -100,10 +201,13 @@ struct SheetView: View {
     }
 
     private func commit(_ reference: String) {
-        model.change(Edit(what: .cell(sheet: model.sheet ?? "", reference: reference, value: typed)))
+        // Enter takes the offer when there is one, the way a spreadsheet does.
+        let value = (offered.map { $0.count > typed.count } ?? false) ? offered! : typed
+        offered = nil
+        model.change(Edit(what: .cell(sheet: model.sheet ?? "", reference: reference, value: value)))
         editing = nil
         // Show it straight away. The file itself is not touched until Save.
-        model.showTyped(reference: reference, value: typed)
+        model.showTyped(reference: reference, value: value)
     }
 }
 

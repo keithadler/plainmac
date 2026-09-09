@@ -202,7 +202,11 @@ private struct StatusLine: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            if let opened = model.opened {
+            if !model.stats.isEmpty {
+                Text(model.stats)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let opened = model.opened {
                 Text(opened.shape.kind.capitalized)
                     .font(.caption)
                     .foregroundStyle(.secondary)

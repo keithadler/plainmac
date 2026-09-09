@@ -41,6 +41,8 @@ internal static class Do
             "folder" => Folder_(ask),
             "compare" => Compare_(ask),
             "csv" => Csv_(path, ask),
+            "suggest" => Suggest_(path, ask),
+            "summary" => Summary_(path, ask),
 
             // ---------- changing a sheet ----------
             "sort" => Change(path, f => Sort_(f, ask)),
@@ -278,6 +280,57 @@ internal static class Do
         var file = PlainFile.Open(path);
         var sheet = SheetOf(file, ask);
         return Json.Write(j => j.Put("csv", Core.Csv.Write(sheet, ',', Yes(ask, "formatted"))));
+    }
+
+    /// <summary>
+    /// What else is in this column that starts the same way, for offering as you type. A list of clients typed
+    /// slightly differently each time is the most common way a spreadsheet quietly goes wrong.
+    /// </summary>
+    private static string Suggest_(string path, JsonElement ask)
+    {
+        var file = PlainFile.Open(path);
+        var sheet = SheetOf(file, ask);
+        var offer = sheet.Suggest(Number(ask, "column", 1), Number(ask, "row", 1), Text(ask, "typed"));
+        return Json.Write(j => j.Put("offer", offer));
+    }
+
+    /// <summary>
+    /// What the selection adds up to: how many numbers, the sum, the average, the lowest and the highest. The
+    /// question a spreadsheet is usually opened to answer.
+    /// </summary>
+    private static string Summary_(string path, JsonElement ask)
+    {
+        var file = PlainFile.Open(path);
+        var sheet = SheetOf(file, ask);
+        var (left, top, right, bottom) = Block(ask);
+
+        long size = (long)(right - left + 1) * (bottom - top + 1);
+        if (size > 200_000) return Json.Write(j => j.Put("said", ""));
+
+        int numbers = 0, filled = 0;
+        double total = 0, low = double.MaxValue, high = double.MinValue;
+        for (int r = top; r <= bottom; r++)
+            for (int c = left; c <= right; c++)
+            {
+                var cell = sheet.Read(new CellRef(c, r));
+                if (cell.Kind == CellKind.Empty) continue;
+                filled++;
+                if (!double.TryParse(cell.Raw, System.Globalization.NumberStyles.Float,
+                                     System.Globalization.CultureInfo.InvariantCulture, out var value)) continue;
+                numbers++;
+                total += value;
+                low = Math.Min(low, value);
+                high = Math.Max(high, value);
+            }
+
+        return Json.Write(j =>
+        {
+            j.Put("filled", filled).Put("numbers", numbers);
+            if (numbers > 0)
+            {
+                j.Put("sum", total).Put("average", total / numbers).Put("lowest", low).Put("highest", high);
+            }
+        });
     }
 
     // ---------- changing a sheet ----------

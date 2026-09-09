@@ -237,10 +237,19 @@ enum CLI {
                 } else { i += 1 }
             }
             do {
-                let done = try Engine.run(rest[0], named)
-                if let said = done.said { out(said) }
-                if let parts = done.parts {
-                    out("\(parts.rewritten) of \(parts.read) parts rewritten, \(parts.kept) kept byte for byte")
+                let answer = try Engine.raw(rest[0], named)
+                let object = try? JSONSerialization.jsonObject(with: Data(answer.utf8)) as? [String: Any]
+
+                // An operation that changed something says what it did; one that read something gives back what
+                // it found, and a script wants that whole.
+                if let said = object?["said"] as? String, !said.isEmpty {
+                    out(said)
+                    if let parts = object?["parts"] as? [String: Any],
+                       let read = parts["read"], let rewritten = parts["rewritten"], let kept = parts["kept"] {
+                        out("\(rewritten) of \(read) parts rewritten, \(kept) kept byte for byte")
+                    }
+                } else {
+                    out(answer)
                 }
                 return 0
             } catch { err(error.localizedDescription); return 2 }

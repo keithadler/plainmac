@@ -179,6 +179,71 @@ enum EngineSuite {
             let after = try Data(contentsOf: URL(fileURLWithPath: path))
             t.check(before == after, "the file on disk is exactly as it was found")
         },
+
+        TestCase(name: "what the selection adds up to") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            _ = try Engine.save(path: path, edits: [
+                ["what": "cell", "sheet": "", "reference": "A1", "value": "10"],
+                ["what": "cell", "sheet": "", "reference": "A2", "value": "20"],
+                ["what": "cell", "sheet": "", "reference": "A3", "value": "30"],
+            ])
+            let summary: Engine.Summary = try Engine.ask("summary", [
+                "path": path, "left": 1, "top": 1, "right": 1, "bottom": 3,
+            ])
+            t.equal(summary.numbers, 3, "it counted the numbers")
+            t.equal(summary.sum, 60, "and added them up")
+            t.equal(summary.average, 20, "and averaged them")
+            t.equal(summary.lowest, 10, "and found the lowest")
+            t.equal(summary.highest, 30, "and the highest")
+            t.check(summary.said.contains("60"), "and says it in words: \(summary.said)")
+        },
+
+        TestCase(name: "a column offers what is already in it") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            _ = try Engine.save(path: path, edits: [
+                ["what": "cell", "sheet": "", "reference": "A1", "value": "Woodland Ave Partners"],
+                ["what": "cell", "sheet": "", "reference": "A2", "value": "12345"],
+            ])
+            let model = PlainModel()
+            model.open(path)
+            t.equal(model.suggest(column: 1, row: 3, typed: "Wood"), "Woodland Ave Partners", "it offers what is above")
+            t.check(model.suggest(column: 1, row: 3, typed: "Zebra") == nil, "and nothing when nothing matches")
+            t.check(model.suggest(column: 1, row: 3, typed: "123") == nil, "and never offers to finish a number")
+            t.check(model.suggest(column: 1, row: 3, typed: "=SU") == nil, "and never inside a formula")
+        },
+
+        TestCase(name: "an operation that is refused leaves the file alone") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            _ = try Engine.save(path: path, edits: [
+                ["what": "cell", "sheet": "", "reference": "A1", "value": "10"],
+                ["what": "cell", "sheet": "", "reference": "A2", "value": "20"],
+                ["what": "cell", "sheet": "", "reference": "B1", "value": "=SUM(A1:A2)"],
+            ])
+            let before = try Data(contentsOf: URL(fileURLWithPath: path))
+
+            var threw = false
+            do {
+                _ = try Engine.run("sort", ["path": path, "left": 1, "top": 1, "right": 2, "bottom": 2, "by": 1])
+            } catch { threw = true }
+
+            t.check(threw, "sorting rows a formula reads is refused")
+            let after = try Data(contentsOf: URL(fileURLWithPath: path))
+            t.check(before == after, "and the file on disk is exactly as it was")
+        },
+
+        TestCase(name: "structural changes keep the promise") { t in
+            guard let path = try? sampleWorkbook() else { t.skip("could not make a workbook"); return }
+            _ = try Engine.run("sheet", ["path": path, "how": "add", "name": "Extra"])
+            _ = try Engine.run("freeze", ["path": path, "rows": 1, "columns": 1])
+            _ = try Engine.run("colour", ["path": path, "left": 1, "top": 1, "right": 2, "bottom": 2, "fill": "FFF3C4"])
+            _ = try Engine.run("border", ["path": path, "left": 1, "top": 1, "right": 2, "bottom": 2, "style": "thin"])
+
+            let trip = try Engine.roundTrip(path)
+            t.check(trip.identical, "after all of that, opening and saving still changes nothing")
+
+            let opened = try Engine.open(path)
+            t.check((opened.shape.sheets?.count ?? 0) >= 2, "and the sheet that was added is there")
+        },
     ])
 
     // ---------- files to work on ----------

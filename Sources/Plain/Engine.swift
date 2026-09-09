@@ -100,6 +100,22 @@ enum Engine {
         return try json(request) { plain_do($0) }
     }
 
+    /// The answer as it came, for a script that wants the whole of it.
+    static func raw(_ op: String, _ named: [String: Any] = [:]) throws -> String {
+        var request = named
+        request["op"] = op
+        let data = try JSONSerialization.data(withJSONObject: request)
+        let text = String(decoding: data, as: UTF8.self)
+        guard let pointer = text.withCString({ plain_do($0) }) else {
+            throw Failure(said: "The engine did not answer.")
+        }
+        defer { plain_free(pointer) }
+        let answer = String(cString: pointer)
+        if let object = try? JSONSerialization.jsonObject(with: Data(answer.utf8)) as? [String: Any],
+           let said = object["error"] as? String { throw Failure(said: said) }
+        return answer
+    }
+
     /// The same, when what comes back is a list rather than a report of what changed.
     static func ask<T: Decodable>(_ op: String, _ named: [String: Any] = [:]) throws -> T {
         var request = named
@@ -151,6 +167,36 @@ enum Engine {
     }
 
     struct Tally: Decodable { let words: Int; let characters: Int; let paragraphs: Int }
+
+    struct Offer: Decodable { let offer: String? }
+
+    /// What the selection adds up to. Everything but the counts is missing when there are no numbers in it.
+    struct Summary: Decodable {
+        let filled: Int
+        let numbers: Int
+        let sum: Double?
+        let average: Double?
+        let lowest: Double?
+        let highest: Double?
+
+        /// Said the way a person would say it, or nothing when there is nothing worth saying.
+        var said: String {
+            guard numbers > 0 else { return filled == 0 ? "" : "\(filled) filled" }
+            if numbers == 1 { return "1 number, \(show(sum))" }
+            return "\(numbers) numbers, sum \(show(sum)), average \(show(average)), "
+                 + "lowest \(show(lowest)), highest \(show(highest))"
+        }
+
+        /// Enough decimals to be useful, not so many that a status line turns into a wall of digits.
+        private func show(_ value: Double?) -> String {
+            guard let value else { return "" }
+            let rounded = (value * 10_000).rounded() / 10_000
+            let f = NumberFormatter()
+            f.numberStyle = .decimal
+            f.maximumFractionDigits = rounded == rounded.rounded() ? 0 : 4
+            return f.string(from: NSNumber(value: rounded)) ?? "\(rounded)"
+        }
+    }
 
     struct Hits: Decodable {
         let hits: [Hit]

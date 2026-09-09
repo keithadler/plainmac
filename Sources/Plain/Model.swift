@@ -81,6 +81,12 @@ final class PlainModel: ObservableObject {
 
     @Published var sheet: String?
     @Published var said = ""
+
+    /// What the selection adds up to, shown on the right of the status line.
+    @Published var stats = ""
+
+    /// A newer version, when the daily check found one. Shown as one line, never as a dialog.
+    @Published var newVersion: (version: String, page: URL)?
     @Published var failed: String?
 
     /// What has been changed and not yet written. Kept in order, one per place.
@@ -99,6 +105,57 @@ final class PlainModel: ObservableObject {
 
     var dirty: Bool { !edits.isEmpty }
     var name: String { path.map { ($0 as NSString).lastPathComponent } ?? "Plain" }
+
+    /// Where copies of unsaved work are kept, beside the settings.
+    static var keepFolder: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Plain for Mac/kept", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
+    }
+
+    /// Every half minute, put a copy of anything unsaved beside the settings.
+    ///
+    /// Macs lose power and processes are killed, and losing an afternoon of typing to that is the difference
+    /// between a tool people trust and one they do not. The copy is your document, so it is as private as the
+    /// original and it never leaves the Mac.
+    func startKeeping() {
+        keeper?.invalidate()
+        keeper = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.keepUnsaved() }
+        }
+    }
+
+    private func keepUnsaved() {
+        guard Prefs.keepUnsaved, dirty, let path else { return }
+        do {
+            let to = PlainModel.keepFolder.appendingPathComponent((path as NSString).lastPathComponent)
+            // The file on disk plus what has been typed, so what is kept is what is on screen.
+            try FileManager.default.removeItem(at: to)
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: to)
+            _ = try Engine.save(path: to.path, edits: edits.map(\.asJSON))
+            Prefs.defaults.set(path, forKey: "keptFrom:" + to.lastPathComponent)
+        } catch { /* keeping is a kindness, not a promise; a failure is silent */ }
+    }
+
+    /// Anything a previous run did not get to save, offered back.
+    func waitingToBeRecovered() -> [(kept: URL, original: String)] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: PlainModel.keepFolder,
+                                                                  includingPropertiesForKeys: nil)) ?? []
+        return files.compactMap { url in
+            guard let from = Prefs.defaults.string(forKey: "keptFrom:" + url.lastPathComponent) else { return nil }
+            return (url, from)
+        }
+    }
+
+    func forgetKept() {
+        for (url, _) in waitingToBeRecovered() {
+            Prefs.defaults.removeObject(forKey: "keptFrom:" + url.lastPathComponent)
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private var keeper: Timer?
 
     // ---------- opening ----------
 
@@ -212,12 +269,35 @@ final class PlainModel: ObservableObject {
             edits = []
             history = []
             undone = []
+            forgetKept()
             said = "Saved. \(saved.parts.rewritten) of \(saved.parts.read) parts rewritten, "
                  + "\(saved.parts.kept) kept byte for byte."
             open(path)
         } catch {
             failed = error.localizedDescription
         }
+    }
+
+    /// What the selection adds up to, for the status line. The question a spreadsheet is usually opened to answer.
+    func summarise(_ selection: Selection) {
+        guard let path, screen != nil else { return }
+        do {
+            let summary: Engine.Summary = try Engine.ask("summary", [
+                "path": path, "sheet": sheet ?? "",
+                "left": selection.left, "top": selection.top,
+                "right": selection.right, "bottom": selection.bottom,
+            ])
+            stats = summary.said
+        } catch { stats = "" }
+    }
+
+    /// What is already in this column that starts the same way, for offering as you type.
+    func suggest(column: Int, row: Int, typed: String) -> String? {
+        guard let path, !typed.isEmpty, !typed.hasPrefix("="), Double(typed) == nil else { return nil }
+        let offer: Engine.Offer? = try? Engine.ask("suggest", [
+            "path": path, "sheet": sheet ?? "", "column": column, "row": row, "typed": typed,
+        ])
+        return offer?.offer
     }
 
     /// What the file carries that is not on the page, for showing before it is sent.
