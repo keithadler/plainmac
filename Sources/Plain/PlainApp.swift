@@ -33,6 +33,8 @@ struct PlainApp: App {
 extension Notification.Name {
     static let plainFind = Notification.Name("plainFind")
     static let plainCarries = Notification.Name("plainCarries")
+    static let plainTrace = Notification.Name("plainTrace")
+    static let plainReplace = Notification.Name("plainReplace")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -75,6 +77,9 @@ struct PlainCommands: Commands {
             Button("Find…") { NotificationCenter.default.post(name: .plainFind, object: nil) }
                 .keyboardShortcut("f")
                 .disabled(model.path == nil)
+            Button("Find and replace…") { NotificationCenter.default.post(name: .plainReplace, object: nil) }
+                .keyboardShortcut("f", modifiers: [.command, .option])
+                .disabled(model.path == nil)
         }
         CommandGroup(replacing: .saveItem) {
             Button("Save") { model.save() }
@@ -87,6 +92,11 @@ struct PlainCommands: Commands {
                 NotificationCenter.default.post(name: .plainCarries, object: nil)
             }
             .disabled(model.path == nil)
+            Divider()
+            Button("Save as PDF…") { Files.pdf(model) }
+                .disabled(model.path == nil)
+            Button("Save a copy…") { Files.saveCopy(model) }
+                .disabled(model.path == nil)
         }
         CommandGroup(replacing: .help) {
             Button("Plain Help") { Help.show() }

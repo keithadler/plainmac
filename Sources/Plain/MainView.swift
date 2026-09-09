@@ -12,6 +12,8 @@ struct MainView: View {
     @State private var finding = false
     @State private var looking = ""
     @State private var carrying = false
+    @State private var tracing: String?
+    @State private var replacing = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +46,14 @@ struct MainView: View {
             Text(model.failed ?? "")
         }
         .sheet(isPresented: $carrying) { Carries().environmentObject(model) }
+        .sheet(item: Binding(get: { tracing.map(Traced.init) }, set: { tracing = $0?.cell })) { what in
+            TracePanel(cell: what.cell).environmentObject(model)
+        }
+        .sheet(isPresented: $replacing) { ReplacePanel().environmentObject(model) }
+        .onReceive(NotificationCenter.default.publisher(for: .plainTrace)) { note in
+            tracing = note.object as? String
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .plainReplace)) { _ in replacing = true }
         .onReceive(NotificationCenter.default.publisher(for: .plainFind)) { _ in finding = true }
         .onReceive(NotificationCenter.default.publisher(for: .plainCarries)) { _ in carrying = true }
         .environment(\.plainLooking, looking)
@@ -302,5 +312,115 @@ private struct Carries: View {
         }
         .frame(width: 560)
         .onAppear { found = model.whatItCarries() }
+    }
+}
+
+
+/// A cell being traced, so it can be handed to a sheet as an item.
+private struct Traced: Identifiable {
+    let cell: String
+    var id: String { cell }
+}
+
+/// What a cell's formula reads, and what reads the cell. The question behind most spreadsheet mistakes.
+private struct TracePanel: View {
+    @EnvironmentObject var model: PlainModel
+    @Environment(\.dismiss) private var dismiss
+    let cell: String
+    @State private var traced: Engine.Traced?
+    @State private var failed: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("What \(cell) takes part in")
+                .font(.title3).bold()
+                .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 12)
+
+            if let failed {
+                Text(failed).foregroundStyle(.secondary).padding(.horizontal, 22)
+            } else if let traced {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(traced.reads.isEmpty
+                             ? "\(cell) holds no formula, so it reads nothing."
+                             : "\(cell) reads")
+                            .font(.callout).bold().padding(.top, 4)
+                        ForEach(Array(traced.reads.enumerated()), id: \.offset) { _, t in
+                            HStack(alignment: .top) {
+                                Text(t.where_).font(.system(.callout, design: .monospaced))
+                                Text(t.what).foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Text(traced.readBy.isEmpty
+                             ? "Nothing else reads \(cell)."
+                             : "\(cell) is read by")
+                            .font(.callout).bold().padding(.top, 14)
+                        ForEach(Array(traced.readBy.enumerated()), id: \.offset) { _, t in
+                            HStack(alignment: .top) {
+                                Text(t.where_).font(.system(.callout, design: .monospaced))
+                                Text(t.what).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 22)
+                }
+            } else {
+                ProgressView().padding(22)
+            }
+
+            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
+                .padding(22)
+        }
+        .frame(width: 620, height: 440)
+        .onAppear {
+            guard let path = model.path else { return }
+            do {
+                traced = try Engine.ask("traces", ["path": path, "sheet": model.sheet ?? "", "cell": cell])
+            } catch { failed = error.localizedDescription }
+        }
+    }
+}
+
+/// Find and replace across the whole file. It says what it would change before it changes anything.
+private struct ReplacePanel: View {
+    @EnvironmentObject var model: PlainModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var find = ""
+    @State private var with = ""
+    @State private var matchCase = false
+    @State private var wholeWord = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Find and replace").font(.title3).bold()
+
+            TextField("Find", text: $find).textFieldStyle(.roundedBorder)
+            TextField("Replace with", text: $with).textFieldStyle(.roundedBorder)
+
+            Toggle("Match upper and lower case", isOn: $matchCase)
+            Toggle("Whole words only", isOn: $wholeWord)
+
+            Text("This changes the file when you do it, and it cannot be undone from here. "
+                 + "Everything Plain does not understand is written back untouched either way.")
+                .font(.caption).foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Replace all") {
+                    model.perform("replace", [
+                        "find": find, "with": with,
+                        "matchCase": matchCase, "wholeWord": wholeWord,
+                    ])
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(find.isEmpty)
+            }
+        }
+        .padding(22)
+        .frame(width: 460)
     }
 }

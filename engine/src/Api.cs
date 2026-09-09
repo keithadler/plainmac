@@ -272,6 +272,18 @@ public static class Api
             .Put("output", output));
     });
 
+    /// <summary>
+    /// Everything else the app can ask for, behind one door: sorting, filtering, colours, sheets, slides, links,
+    /// replacing, page setup and the rest. One entry point rather than thirty, because the boundary is already
+    /// JSON in and JSON out and thirty exports would be thirty things to keep in step.
+    /// </summary>
+    [UnmanagedCallersOnly(EntryPoint = "plain_do")]
+    public static nint Operation(nint requestUtf8) => Guard(() =>
+    {
+        using var request = JsonDocument.Parse(Text(requestUtf8));
+        return Do.Run(request.RootElement);
+    });
+
     /// <summary>Give back a string the engine allocated.</summary>
     [UnmanagedCallersOnly(EntryPoint = "plain_free")]
     public static void Free(nint p) => Marshal.FreeHGlobal(p);

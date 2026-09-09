@@ -13,6 +13,7 @@ struct SheetView: View {
     @EnvironmentObject var model: PlainModel
     @State private var editing: String?
     @State private var typed = ""
+    @State private var selection = Selection()
 
     private var cells: [String: Engine.Screen.Cell] {
         Dictionary(uniqueKeysWithValues: (model.screen?.cells ?? []).map { ($0.reference, $0) })
@@ -76,13 +77,23 @@ struct SheetView: View {
                 .lineLimit(1)
                 .frame(width: width(column), height: 22, alignment: isNumber ? .trailing : .leading)
                 .padding(.horizontal, 4)
-                .border(Color.secondary.opacity(0.15), width: 0.5)
+                .background(selection.contains(column, row)
+                            ? Color.accentColor.opacity(selection.isOne ? 0.16 : 0.10) : Color.clear)
+                .border(selection.column == column && selection.row == row
+                        ? Color.accentColor : Color.secondary.opacity(0.15),
+                        width: selection.column == column && selection.row == row ? 1.5 : 0.5)
                 .contentShape(Rectangle())
+                .onTapGesture { selection.move(to: column, row: row, extending: false) }
                 .onTapGesture(count: 2) {
                     // What is being edited is what the file holds, not what is shown: a formula, or the number
                     // before it was formatted. Editing what is shown would turn 25,000 into words.
-                    typed = cell?.formula ?? cell?.raw ?? ""
+                    selection.move(to: column, row: row, extending: false)
+                    typed = cell?.formula.map { "=" + $0 } ?? cell?.raw ?? ""
                     editing = reference
+                }
+                .contextMenu {
+                    SheetMenu(selection: $selection, column: column, row: row)
+                        .environmentObject(model)
                 }
                 .help(cell?.formula.map { "= \($0)" } ?? "")
         }
@@ -287,6 +298,42 @@ enum Files {
         panel.allowsMultipleSelection = false
         panel.message = "Open a Word, Excel or PowerPoint file"
         if panel.runModal() == .OK, let url = panel.url { model.open(url.path) }
+    }
+
+    /// Save the file as a PDF. What Plain shows, not a facsimile of Word's pages, and it says so.
+    @MainActor
+    static func pdf(_ model: PlainModel) {
+        guard let path = model.path else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ((path as NSString).lastPathComponent as NSString)
+            .deletingPathExtension + ".pdf"
+        if let pdf = UTType(filenameExtension: "pdf") { panel.allowedContentTypes = [pdf] }
+        panel.message = "This is the file as Plain shows it, not as Word would lay it out."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        model.perform("pdf", ["to": url.path], needsSaveFirst: true)
+    }
+
+    /// Save a copy somewhere else, leaving the original where it is.
+    @MainActor
+    static func saveCopy(_ model: PlainModel) {
+        guard let path = model.path else { return }
+        let panel = NSSavePanel()
+        let name = (path as NSString).lastPathComponent
+        panel.nameFieldStringValue = "Copy of " + name
+        if let type = UTType(filenameExtension: (name as NSString).pathExtension) {
+            panel.allowedContentTypes = [type]
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            if model.dirty { model.save() }
+            try FileManager.default.removeItem(at: url)
+        } catch { /* nothing there to remove, which is the usual case */ }
+        do {
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: url)
+            model.said = "A copy is at \(url.path). The original is untouched."
+        } catch {
+            model.failed = error.localizedDescription
+        }
     }
 
     /// A new file is written to disk before anything is typed into it, so there is nothing to lose if the Mac stops.

@@ -89,6 +89,74 @@ enum Engine {
         }
     }
 
+    /// Everything else the engine can do, behind one door.
+    ///
+    /// The operations all take a bag of named values and give back either what they found or what they did, so
+    /// there is one call here rather than thirty. What each one wants is in the engine's Do.cs.
+    @discardableResult
+    static func run(_ op: String, _ named: [String: Any] = [:]) throws -> Done {
+        var request = named
+        request["op"] = op
+        return try json(request) { plain_do($0) }
+    }
+
+    /// The same, when what comes back is a list rather than a report of what changed.
+    static func ask<T: Decodable>(_ op: String, _ named: [String: Any] = [:]) throws -> T {
+        var request = named
+        request["op"] = op
+        return try json(request) { plain_do($0) }
+    }
+
+    /// What an operation did, said in words the window can show.
+    struct Done: Decodable {
+        let said: String?
+        let parts: Saved.Parts?
+    }
+
+    struct Traced: Decodable {
+        let cell: String
+        let reads: [Touch]
+        let readBy: [Touch]
+        struct Touch: Decodable { let where_: String; let what: String
+            enum CodingKeys: String, CodingKey { case where_ = "where", what }
+        }
+    }
+
+    struct Rules: Decodable {
+        let rules: [Rule]
+        struct Rule: Decodable {
+            let sheet: String, kind: String, says: String, allowed: [String]
+            let where_: String
+            enum CodingKeys: String, CodingKey { case sheet, kind, says, allowed, where_ = "where" }
+        }
+    }
+
+    struct LinkList: Decodable {
+        let links: [Link]
+        struct Link: Decodable { let text: String; let target: String; let safe: Bool }
+    }
+
+    struct CommentList: Decodable {
+        let comments: [Comment]
+        struct Comment: Decodable {
+            let index: Int, who: String, when: String, text: String
+            let where_: String
+            enum CodingKeys: String, CodingKey { case index, who, when, text, where_ = "where" }
+        }
+    }
+
+    struct ChangeList: Decodable {
+        let changes: [Change]
+        struct Change: Decodable { let index: Int; let added: Bool; let who: String; let when: String; let text: String }
+    }
+
+    struct Tally: Decodable { let words: Int; let characters: Int; let paragraphs: Int }
+
+    struct Hits: Decodable {
+        let hits: [Hit]
+        struct Hit: Decodable { let sheet: String; let reference: String; let show: String }
+    }
+
     /// The engine's own checks, run from inside the app.
     static func selfTest() throws -> SelfTest { try ask(plain_selftest()) }
 

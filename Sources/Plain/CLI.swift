@@ -218,6 +218,33 @@ enum CLI {
             }
             return worst
 
+        // Every operation, reachable from a script, which is also how they are checked.
+        case "do":
+            guard rest.count >= 1 else { err("do <op> [--path <file>] [--name value ...]"); return 64 }
+            var named: [String: Any] = [:]
+            var i = 0
+            while i < args.count {
+                let a = args[i]
+                if a.hasPrefix("--"), i + 1 < args.count, !args[i + 1].hasPrefix("--") {
+                    let key = String(a.dropFirst(2))
+                    let raw = args[i + 1]
+                    // Numbers and yes/no cross as themselves, so the engine gets what it expects.
+                    if let n = Int(raw) { named[key] = n }
+                    else if raw == "true" { named[key] = true }
+                    else if raw == "false" { named[key] = false }
+                    else { named[key] = raw }
+                    i += 2
+                } else { i += 1 }
+            }
+            do {
+                let done = try Engine.run(rest[0], named)
+                if let said = done.said { out(said) }
+                if let parts = done.parts {
+                    out("\(parts.rewritten) of \(parts.read) parts rewritten, \(parts.kept) kept byte for byte")
+                }
+                return 0
+            } catch { err(error.localizedDescription); return 2 }
+
         case "selftest":
             return selftest(args)
 

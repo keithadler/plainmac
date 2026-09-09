@@ -15,6 +15,7 @@ char *plain_save(const char *request);
 char *plain_roundtrip(const char *path);
 char *plain_hidden(const char *path);
 char *plain_preserved(const char *path);
+char *plain_do(const char *request);
 char *plain_selftest(void);
 void plain_free(char *p);
 
