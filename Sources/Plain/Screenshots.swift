@@ -56,6 +56,28 @@ enum Screenshots {
             wrote += 1
         }
 
+        // One more picture: the window when the daily check has found a newer version. It is a state nobody sees
+        // on demand, so it is rendered deliberately rather than waited for.
+        do {
+            let model = PlainModel()
+            model.open(demo.appendingPathComponent("quarter.xlsx").path)
+            model.newVersion = (version: "1.1.0", page: URL(string: "https://example.invalid/r")!)
+
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 720),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: false)
+            window.title = "Plain for Mac"
+            window.contentView = NSHostingView(rootView: MainView()
+                .environmentObject(model)
+                .frame(width: 1180, height: 720))
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            settle()
+            let out = folder.appendingPathComponent("update.png")
+            if (try? capture(window, to: out)) != nil { CLI.out("wrote \(out.path)"); wrote += 1 }
+            window.orderOut(nil)
+        }
+
         if announce {
             CLI.err("promo cards are not written yet")
             return 2

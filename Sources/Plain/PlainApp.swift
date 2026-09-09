@@ -98,6 +98,18 @@ struct PlainCommands: Commands {
             Button("Save a copy…") { Files.saveCopy(model) }
                 .disabled(model.path == nil)
         }
+        CommandGroup(replacing: .appInfo) {
+            Button("Check for a newer version now") {
+                Task { @MainActor in
+                    Updates.lastCheck = nil
+                    Updates.skippedVersion = nil
+                    await Updates.checkIfDue()
+                    if PlainModel.shared.newVersion == nil {
+                        PlainModel.shared.said = "This is the newest version there is."
+                    }
+                }
+            }
+        }
         CommandGroup(replacing: .help) {
             Button("Plain Help") { Help.show() }
             Button("More from the Same Maker…") {

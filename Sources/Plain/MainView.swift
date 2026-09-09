@@ -20,6 +20,12 @@ struct MainView: View {
             Controls()
             Divider()
 
+            // A newer version, mentioned once and never insisted on. No dialog, no timer, no nagging.
+            if let found = model.newVersion {
+                UpdateBar(version: found.version, page: found.page)
+                Divider()
+            }
+
             if finding {
                 FindBar(looking: $looking, close: { finding = false; looking = "" })
                 Divider()
@@ -426,5 +432,31 @@ private struct ReplacePanel: View {
         }
         .padding(22)
         .frame(width: 460)
+    }
+}
+
+
+/// One line saying there is a newer version. It is the only thing the daily check ever does.
+private struct UpdateBar: View {
+    @EnvironmentObject var model: PlainModel
+    let version: String
+    let page: URL
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle").foregroundStyle(.tint)
+            Text("Version \(version) is out. You have \(CLI.version).")
+                .font(.callout)
+            Spacer()
+            Button("See what changed") { NSWorkspace.shared.open(page) }
+            Button("Not now") {
+                // Not asked about again until there is a version newer than this one.
+                Updates.skippedVersion = version
+                model.newVersion = nil
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.accentColor.opacity(0.10))
     }
 }

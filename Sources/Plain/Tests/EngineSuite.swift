@@ -244,6 +244,61 @@ enum EngineSuite {
             let opened = try Engine.open(path)
             t.check((opened.shape.sheets?.count ?? 0) >= 2, "and the sheet that was added is there")
         },
+
+        // The update check found a newer version and then told nobody: it set a value on the model that no view
+        // ever read. These check the whole path, because "it ran" is not the same as "somebody was told".
+        TestCase(name: "a newer version is noticed") { t in
+            let body = Data(#"{"tag_name":"v9.9.9","html_url":"https://example.invalid/r"}"#.utf8)
+            let result = Updates.parse(status: 200, body: body, current: "1.0.0")
+            if case let .available(version, _) = result {
+                t.equal(version, "9.9.9", "it reads the version out of the answer")
+            } else {
+                t.fail("a newer tag should have been offered, got \(result)")
+            }
+        },
+
+        TestCase(name: "the same version is not offered") { t in
+            let body = Data(#"{"tag_name":"v1.0.0","html_url":"https://example.invalid/r"}"#.utf8)
+            if case .available = Updates.parse(status: 200, body: body, current: "1.0.0") {
+                t.fail("the version you already have should not be offered")
+            } else { t.check(true, "it says nothing") }
+        },
+
+        TestCase(name: "an older version is not offered") { t in
+            let body = Data(#"{"tag_name":"v0.9.0","html_url":"https://example.invalid/r"}"#.utf8)
+            if case .available = Updates.parse(status: 200, body: body, current: "1.0.0") {
+                t.fail("an older version should not be offered")
+            } else { t.check(true, "it says nothing") }
+        },
+
+        TestCase(name: "a failed check says nothing at all") { t in
+            for status in [403, 404, 500] {
+                if case .available = Updates.parse(status: status, body: Data(), current: "1.0.0") {
+                    t.fail("HTTP \(status) should not offer anything")
+                }
+            }
+            if case .available = Updates.parse(status: 200, body: Data("<html>".utf8), current: "1.0.0") {
+                t.fail("an answer that is not JSON should not offer anything")
+            }
+            t.check(true, "somebody offline gets no message")
+        },
+
+        TestCase(name: "when one is found, the window is told") { t in
+            let model = PlainModel()
+            t.check(model.newVersion == nil, "nothing to say to begin with")
+
+            // What checkIfDue does when the answer is a newer version.
+            model.newVersion = (version: "9.9.9", page: URL(string: "https://example.invalid/r")!)
+            t.check(model.newVersion != nil, "the window has something to show")
+            t.equal(model.newVersion?.version, "9.9.9", "and it is the version that was found")
+        },
+
+        TestCase(name: "a version turned down is not offered again") { t in
+            let was = Updates.skippedVersion
+            defer { Updates.skippedVersion = was }
+            Updates.skippedVersion = "9.9.9"
+            t.equal(Updates.skippedVersion, "9.9.9", "it remembers what was turned down")
+        },
     ])
 
     // ---------- files to work on ----------
