@@ -114,12 +114,20 @@ enum Engine {
     }
 
     struct Screen: Decodable {
+        init(sheet: String, cells: [Cell], widths: [Width], joined: [Join]) {
+            self.sheet = sheet; self.cells = cells; self.widths = widths; self.joined = joined
+        }
+
         let sheet: String
         let cells: [Cell]
         let widths: [Width]
         let joined: [Join]
 
         struct Cell: Decodable {
+            init(reference: String, column: Int, row: Int, show: String, raw: String, formula: String?, kind: String) {
+                self.reference = reference; self.column = column; self.row = row
+                self.show = show; self.raw = raw; self.formula = formula; self.kind = kind
+            }
             let reference: String
             let column: Int
             let row: Int

@@ -13,6 +13,13 @@ cd "$(dirname "$0")"
 # Universal (Intel + Apple Silicon) by default. The Command Line Tools can't do a two-arch build in one
 # go (that needs Xcode's xcbuild), so each slice is built separately and joined with lipo.
 # Set ARCHS to one triple for a quick local build, e.g. ARCHS=arm64-apple-macosx ./build-app.sh
+# The engine is a native library built from the same C# as Plain for Windows, and it has to exist before the
+# Swift code will link. Building it here means a clean clone builds with one command.
+ENGINE_FOR="${ENGINE_FOR:-both}"
+[ "${ARCHS:-}" = "arm64-apple-macosx" ] && ENGINE_FOR=arm64
+[ "${ARCHS:-}" = "x86_64-apple-macosx" ] && ENGINE_FOR=x64
+engine/build.sh "$ENGINE_FOR"
+
 ARCHS="${ARCHS:-arm64-apple-macosx x86_64-apple-macosx}"
 SLICES=()
 for triple in $ARCHS; do
@@ -39,6 +46,8 @@ APP="build/Plain for Mac.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Plain"
+# The engine travels beside the executable, which is where the rpath says to look for it.
+cp engine/out/libPlainEngine.dylib "$APP/Contents/MacOS/libPlainEngine.dylib"
 cp Info.plist "$APP/Contents/Info.plist"
 if [ -f AppIcon.icns ]; then
   cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"

@@ -134,6 +134,24 @@ final class PlainModel: ObservableObject {
 
     // ---------- changing ----------
 
+    /// Put what was just typed on screen without touching the file. Saving is what touches the file.
+    func showTyped(reference: String, value: String) {
+        guard let screen else { return }
+        var cells = screen.cells.filter { $0.reference != reference }
+        if !value.isEmpty {
+            let numeric = Double(value) != nil
+            let column = cells.first { $0.reference == reference }?.column ?? 0
+            let row = cells.first { $0.reference == reference }?.row ?? 0
+            cells.append(Engine.Screen.Cell(
+                reference: reference, column: column, row: row,
+                show: value, raw: value,
+                formula: value.hasPrefix("=") ? String(value.dropFirst()) : nil,
+                kind: value.hasPrefix("=") ? "formula" : (numeric ? "number" : "text")))
+        }
+        self.screen = Engine.Screen(sheet: screen.sheet, cells: cells,
+                                    widths: screen.widths, joined: screen.joined)
+    }
+
     func change(_ edit: Edit) {
         edits.removeAll { $0.place == edit.place }
         edits.append(edit)

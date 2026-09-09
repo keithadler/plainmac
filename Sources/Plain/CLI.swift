@@ -222,8 +222,8 @@ enum CLI {
             return selftest(args)
 
         case "screenshots":
-            err("screenshots needs the window, which this build does not have yet.")
-            return 2
+            guard let dir = rest.first else { err("screenshots <dir> [--announce]"); return 64 }
+            return Screenshots.render(to: dir, announce: flag("--announce", args))
 
         default:
             err("plainmac: no such command \"\(cmd)\"")
