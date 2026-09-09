@@ -1,0 +1,16 @@
+Plain for Mac: opens Word, Excel and PowerPoint files, edits the basics, and never damages what it doesn't understand.
+
+Every editor that opens a .docx reads it into its own idea of a document and writes that idea back out. Whatever it has no room for is quietly gone — the chart, the macro, the tracked changes, the header nobody looked at. You change three words and hand back something subtly different.
+
+Plain opens the file as the package of parts it really is and writes back every part it didn't edit as the exact bytes it found.
+
+Open a file, save it without changing anything, and you get the same file back byte for byte. That's a claim a test can check, and it's checked on every build. Check it on your own documents: plainmac roundtrip ~/Documents/*.docx
+
+It does the fifth of the job that fills most of the day: cells and formulas, sorting, headings and tables, comments and tracked changes, the text on every slide, find and replace, print and PDF. When sorting would make a formula mean something else, it refuses and tells you which one, rather than guessing.
+
+The part that understands the file format is the same code as Plain for Windows, compiled ahead of time into a native library — so the Mac and the Windows app agree about what a file is by construction rather than by intention. Nothing of .NET ships in the app and there is no runtime to install.
+
+No account, no cloud, no telemetry. It asks GitHub once a day whether there's a newer version and that's the only thing it ever sends; turn it off and it makes no network request at all. Free and MIT.
+
+macOS 14 or later, Apple Silicon and Intel: https://github.com/keithadler/plainmac
+Windows 10 and 11: https://github.com/keithadler/plainwin

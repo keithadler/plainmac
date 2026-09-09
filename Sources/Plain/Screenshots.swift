@@ -131,8 +131,13 @@ enum Screenshots {
         }
 
         if announce {
-            CLI.err("promo cards are not written yet")
-            return 2
+            do {
+                let cards = try Promo.render(to: URL(fileURLWithPath: dir), screenshots: folder)
+                for card in cards { CLI.out("wrote \(card.path)"); wrote += 1 }
+            } catch {
+                CLI.err("could not write the promo cards: \(error.localizedDescription)")
+                return 2
+            }
         }
         return wrote > 0 ? 0 : 2
     }
@@ -154,13 +159,13 @@ enum Screenshots {
 
     /// Let the window finish laying itself out before it is photographed.
     @MainActor
-    private static func settle() {
+    static func settle() {
         let until = Date().addingTimeInterval(0.8)
         while Date() < until { RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.02)) }
     }
 
     @MainActor
-    private static func capture(_ window: NSWindow, to url: URL) throws -> URL {
+    static func capture(_ window: NSWindow, to url: URL) throws -> URL {
         typealias Fn = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
         guard let sym = dlsym(dlopen(nil, RTLD_NOW), "CGWindowListCreateImage") else {
             throw NSError(domain: "shots", code: 1)

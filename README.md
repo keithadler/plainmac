@@ -110,7 +110,7 @@ plainmac set <file> <ref> <value> change one cell, then save
 plainmac hidden <file>            what this file would carry with it
 plainmac preserved <file>         the parts Plain keeps but will not draw
 plainmac roundtrip <file>...      prove that a save changes nothing
-plainmac do <op> [--name value]   any of the thirty operations, for scripts
+plainmac do <op> [--name value]   any of the forty-two operations, for scripts
 plainmac selftest
 plainmac version
 plainmac help

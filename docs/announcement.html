@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plain for Mac</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1d1d22; --muted:#5f5f6b; --bg:#fff; --card:#f4f4f7; --accent:#2c4f86; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#f2f2f5; --muted:#a2a2ab; --bg:#141418; --card:#232328; --accent:#7ea6e0; } }
+  body { margin:0; font:17px/1.55 "-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,-apple-system,sans-serif; color:var(--fg); background:var(--bg); }
+  main { max-width:900px; margin:0 auto; padding:56px 24px 96px; }
+  h1 { font-size:44px; line-height:1.1; margin:0 0 12px; letter-spacing:-0.02em; } .lead { font-size:21px; color:var(--muted); margin:0 0 28px; }
+  img { max-width:100%; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); margin:18px 0 32px; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; padding:14px 22px; border-radius:10px; text-decoration:none; font-weight:600; }
+  h2 { font-size:26px; margin:40px 0 8px; } .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; } .card { background:var(--card); border-radius:12px; padding:18px 20px; } .card h3 { margin:0 0 6px; font-size:18px; }
+  code { font:15px "SF Mono",ui-monospace,Menlo,monospace; background:var(--card); padding:2px 6px; border-radius:6px; } .small { color:var(--muted); font-size:15px; }
+  @media (max-width:640px) { .grid { grid-template-columns:1fr; } h1 { font-size:34px; } }
+</style></head><body><main>
+<h1>Word, Excel and PowerPoint files.<br>Edited without being rewritten.</h1>
+<p class="lead">Every editor that opens a .docx reads it into its own idea of a document and writes that idea back out. Whatever it has no room for is quietly gone: the chart, the macro, the tracked changes, the header nobody looked at. Plain opens the file as the package of parts it really is, edits the parts you came to edit, and writes back every other part as the exact bytes it found.</p>
+<p><a class="btn" href="https://github.com/keithadler/plainmac/releases/latest">Download for Mac</a> &nbsp; <span class="small">Free. Open source. macOS 14 or later, Apple Silicon and Intel. No account, no cloud, no permissions to grant.</span></p>
+<img src="screenshots/promo/1-hero.png" alt="Plain for Mac showing a workbook, with the parts it kept named down the side">
+<h2>The promise a test can check</h2>
+<p>Open a file, save it without changing anything, and you get the same file back byte for byte. That is not a claim about intentions, it is something a machine can verify, and it runs on every build. Change one cell and only the parts holding that cell are rewritten. The line at the bottom of the window counts it every time you save: <em>13 parts read, 13 kept byte for byte</em>. Check it on your own documents with <code>plainmac roundtrip ~/Documents/*.docx</code>.</p>
+<h2>The same engine as Plain for Windows</h2>
+<p>This app does not have its own idea of what a .docx is. The part that understands the file format is the same code that <a href="https://github.com/keithadler/plainwin">Plain for Windows</a> runs, compiled ahead of time into a native library the app links. Nothing of .NET ships in the app and there is no runtime to install. The two programs agree by construction rather than by intention, and a bug found on one is fixed for both.</p>
+<h2>The fifth of the features that is most of the work</h2>
+<div class="grid">
+<div class="card"><h3>Spreadsheets</h3>Cells, text and formulas across every sheet, at the widths the file asks for. Sort, take out rows that say the same thing, split a column. Insert and delete rows and columns and every formula in the workbook is rewritten so it still means what it meant. Colour, borders, number formats, frozen rows. When sorting would change what a formula means, it refuses and names the formula rather than guessing.</div>
+<div class="card"><h3>Documents</h3>Headings, paragraphs, lists and tables, laid out as what they are. Page headers and footers. Links you can follow, edit or create. Comments and tracked changes you can accept or turn down. Pictures you can put in and describe.</div>
+<div class="card"><h3>Presentations</h3>The text on every slide, in the order it is read out. Speaker notes, which travel with every copy and which nobody sees on the slide. Slides added, removed and reordered. Shapes it cannot draw stay exactly where they are.</div>
+<div class="card"><h3>Everything else</h3>Several documents open at once, one window each. Undo and redo, find and replace, a folder searched, two versions compared, PDF with page setup, CSV, document properties. And a command line twin for scripts: <code>plainmac do</code> reaches all forty-two operations.</div>
+</div>
+<img src="screenshots/promo/3-carries.png" alt="The panel naming what a file would carry with it if you sent it">
+<h2>What it keeps but does not show</h2>
+<p>Charts, pivot tables, macros, SmartArt, embedded objects, slide layouts, masters, themes, footnotes, headers and footers. All of it is in the saved file unchanged, and the panel down the side names it in plain words rather than by where it lives in the package. Before you send a file, one panel tells you what travels with it: who commented, what the text used to say, where the links really go, and which properties name a person.</p>
+<h2>Honest limits</h2>
+<p class="small">Plain does not lay out a page the way Word does — matching Word's pagination needs Word's own fonts and line breaking, so Plain shows a document as one scrolling column and says so, and its PDF is the text as Plain shows it rather than a facsimile. It does not draw shapes, charts or pictures in place; they are kept and listed. It has no macro engine: a macro survives the round trip, but Plain will not run it. It has never been opened in Microsoft Office — everything is checked against the file format itself, against LibreOffice as an independent reader, and against the byte-for-byte round trip. It is not a replacement for Office. It is what to reach for when you need to change three words in a contract without a four gigabyte install.</p>
+<p class="small">No account, no telemetry, no analytics, and no permissions to grant. The only network request is a daily check with GitHub for a newer version, which sends no identifier and nothing about your files, and which you can turn off in Settings. MIT licensed, built by Keith Adler. More from the same maker: <a href="https://keithadler.github.io">keithadler.github.io</a>.</p>
+</main></body></html>
