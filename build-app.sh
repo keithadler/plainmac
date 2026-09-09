@@ -61,6 +61,12 @@ for lproj in Localization/*.lproj; do
   [ -d "$lproj" ] && cp -R "$lproj" "$APP/Contents/Resources/"
 done
 
+# The engine is a Mach-O of its own inside the bundle, and everything nested has to be signed before the bundle
+# is, or signing the app fails with "code object is not signed at all".
+sign_engine() {
+  codesign --force --sign "$1" "$APP/Contents/MacOS/libPlainEngine.dylib" >/dev/null 2>&1
+}
+
 # Signing identity, in order of preference: SIGN_IDENTITY from the environment (Developer ID),
 # the local certificate from make-local-identity.sh (stable permissions across rebuilds), ad-hoc.
 if [ -z "${SIGN_IDENTITY:-}" ]; then
@@ -72,13 +78,16 @@ if [ -z "${SIGN_IDENTITY:-}" ]; then
   fi
 fi
 if [ "$SIGN_IDENTITY" = "-" ]; then
+  sign_engine -
   codesign --force --sign - --entitlements Plain.entitlements "$APP" >/dev/null 2>&1 || codesign --force --sign - "$APP"
   echo "Signed: ad-hoc (this Mac only)"
 elif [ "$SIGN_IDENTITY" = "Plain Local Signing" ]; then
   # Local certificate: no timestamp server (it's self-signed) and no hardened runtime needed.
+  sign_engine "$SIGN_IDENTITY"
   codesign --force --entitlements Plain.entitlements --sign "$SIGN_IDENTITY" "$APP"
   echo "Signed: local certificate (permissions stay granted across rebuilds)"
 else
+  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP/Contents/MacOS/libPlainEngine.dylib"
   codesign --force --options runtime --timestamp --entitlements Plain.entitlements --sign "$SIGN_IDENTITY" "$APP"
   echo "Signed: $SIGN_IDENTITY (hardened runtime)"
 fi
