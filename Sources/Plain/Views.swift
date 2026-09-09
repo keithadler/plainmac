@@ -243,6 +243,7 @@ struct DocumentView: View {
     @EnvironmentObject var model: PlainModel
     @State private var texts: [Int: String] = [:]
     @State private var linking: Int?
+    @FocusState private var focused: Int?
 
     /// Runs of text, and the tables between them. A table's cells arrive as blocks that know which table, row and
     /// column they are in; laying them out in a line would turn a table into a list of its cells, which is what
@@ -308,23 +309,70 @@ struct DocumentView: View {
         .sheet(isPresented: Binding(get: { linking != nil }, set: { if !$0 { linking = nil } })) {
             linkAsker
         }
+        .onAppear {
+            // A document with nothing in it is a document somebody is about to type into, so put the caret there
+            // rather than making them find the one place it goes.
+            let blocks = model.document?.blocks ?? []
+            if blocks.count == 1, blocks[0].text.isEmpty { focused = 0 }
+        }
+    }
+
+    /// A new paragraph, and the caret in it.
+    private func addParagraph(after index: Int) {
+        model.perform("paragraph", ["how": "add", "at": index])
+        texts = [:]
+        // The engine has renumbered everything; the new one is the next along.
+        focused = index + 1
+    }
+
+    /// How tall a line of this kind is, so an empty one still occupies the space it will need.
+    private func lineHeight(for kind: String) -> CGFloat {
+        switch kind {
+        case "Heading1": return 28
+        case "Heading2": return 22
+        case "Heading3": return 20
+        default: return 19
+        }
     }
 
     @ViewBuilder
     private func field(_ block: Engine.Document.Block) -> some View {
-        TextField("", text: Binding(
+        // An empty paragraph in a plain text field has no size and no background, so there is nothing on screen
+        // to aim at: a new document looked like a blank page with nothing to click. It gets a line's height and
+        // the full width, so every paragraph is somewhere you can put the caret whether or not it has words yet.
+        TextField(block.index == 0 ? "Type here" : "", text: Binding(
             get: { texts[block.index] ?? block.text },
             set: { value in
+                // SwiftUI writes the binding back when the field takes focus, so without this a document said it
+                // had an unsaved change the moment it was opened.
+                guard value != (texts[block.index] ?? block.text) else { return }
                 texts[block.index] = value
                 model.change(Edit(what: .block(index: block.index, text: value)))
             }
         ), axis: .vertical)
         .textFieldStyle(.plain)
+        .focused($focused, equals: block.index)
+        .frame(minHeight: lineHeight(for: block.kind), alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { focused = block.index }
         .font(font(for: block.kind))
         .padding(.leading, block.kind == "ListItem" ? 22 : 0)
         .padding(.top, block.kind.hasPrefix("Heading") ? 12 : 0)
         .help(block.lossless ? "" : "This paragraph has formatting inside it that retyping would flatten.")
+        .onSubmit {
+            // Return makes a new paragraph after this one, the way a word processor does. It writes the file,
+            // because the numbering of every paragraph after it changes and carrying on with the old numbering
+            // is how a tool ends up editing the wrong one.
+            addParagraph(after: block.index)
+        }
         .contextMenu {
+            Button("Add a paragraph below") { addParagraph(after: block.index) }
+            Button("Take this paragraph out") {
+                model.perform("paragraph", ["how": "remove", "at": block.index])
+                texts = [:]
+            }
+            Divider()
             Button("Put a link on this paragraph…") { linking = block.index }
             Button("Take the link off") { model.perform("link", ["how": "off", "block": block.index]) }
             Divider()

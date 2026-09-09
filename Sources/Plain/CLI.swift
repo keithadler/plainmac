@@ -16,6 +16,7 @@ enum CLI {
       plainmac set <file> <ref> <value> [--sheet <name>]  change one cell, then save
       plainmac hidden <file> [--json]            what this file would carry with it if you sent it
       plainmac preserved <file> [--json]         the parts Plain keeps but will not draw
+      plainmac new <file.xlsx|.docx|.pptx>       make a new empty file of that kind
       plainmac roundtrip <file>...               prove that a save changes nothing
 
       plainmac screenshots <dir> [--announce]    render windows and promo cards from demo data
@@ -200,6 +201,14 @@ enum CLI {
                     for r in p.rows { out("\(r.what)\(r.count > 1 ? "  \(r.count)" : "")") }
                     out("Everything above is written back exactly as it was found.")
                 }
+                return 0
+            } catch { err(error.localizedDescription); return 2 }
+
+        case "new":
+            guard let path = rest.first else { err("new <file.xlsx|.docx|.pptx>"); return 64 }
+            do {
+                let made = try Engine.make(path)
+                out("made \((made.path as NSString).lastPathComponent), a \(made.kind)")
                 return 0
             } catch { err(error.localizedDescription); return 2 }
 

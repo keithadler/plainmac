@@ -41,10 +41,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			HabifWF+J4yYtvqKKpFseGoisk0=
+			gDvV5CMgPJuJxu1gB3sRBHIHdTw=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"1da6e27d617e278c98b6fa8a2a916c786a22b24d"</string>
+			<string>cdhash H"803bd5e423203c9b89c6ed60077b11047207753c"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>

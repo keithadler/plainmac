@@ -78,6 +78,27 @@ enum Screenshots {
             window.orderOut(nil)
         }
 
+        // A brand new document, which is what somebody sees first and which looked like a blank page with
+        // nothing to click on.
+        do {
+            let made = folder.appendingPathComponent("new.docx")
+            try? FileManager.default.removeItem(at: made)
+            if (try? Engine.make(made.path)) != nil {
+                let model = PlainModel()
+                model.open(made.path)
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 720),
+                                      styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                window.title = "Plain for Mac"
+                window.contentView = NSHostingView(rootView: MainView()
+                    .environmentObject(model).frame(width: 1180, height: 720))
+                window.center(); window.makeKeyAndOrderFront(nil); settle()
+                let out = folder.appendingPathComponent("new-document.png")
+                if (try? capture(window, to: out)) != nil { CLI.out("wrote \(out.path)"); wrote += 1 }
+                window.orderOut(nil)
+            }
+            try? FileManager.default.removeItem(at: made)
+        }
+
         // The panels. Each is a state nobody can summon on demand, and every one of them was written without
         // being looked at once. Rendering them is how "it compiles" becomes "it is right".
         do {

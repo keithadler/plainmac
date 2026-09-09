@@ -60,6 +60,7 @@ internal static class Do
 
             // ---------- changing a document or a deck ----------
             "tablerow" => Change(path, f => TableRow_(f, ask)),
+            "paragraph" => Change(path, f => Paragraph_(f, ask)),
             "band" => Change(path, f => Band_(f, ask)),
             "slide" => Change(path, f => Slide_(f, ask)),
             "setnotes" => Change(path, f => SetNotes_(f, ask)),
@@ -498,6 +499,21 @@ internal static class Do
         var outcome = Text(ask, "how") == "remove"
             ? document.DeleteRow(Number(ask, "table"), Number(ask, "row"))
             : document.InsertRow(Number(ask, "table"), Number(ask, "row"));
+        if (outcome is TableRows.Refused refused) return refused.Reason;
+        Said = ((TableRows.Done)outcome).What;
+        return null;
+    }
+
+    /// <summary>
+    /// A new paragraph after the one given, or one taken out. A new document has exactly one paragraph, and
+    /// without this it has exactly one for ever.
+    /// </summary>
+    private static string? Paragraph_(PlainFile file, JsonElement ask)
+    {
+        if (file.Document is not { } document) return "Paragraphs live in a document.";
+        var outcome = Text(ask, "how") == "remove"
+            ? document.DeleteParagraph(Number(ask, "at"))
+            : document.InsertParagraph(Number(ask, "at"));
         if (outcome is TableRows.Refused refused) return refused.Reason;
         Said = ((TableRows.Done)outcome).What;
         return null;
