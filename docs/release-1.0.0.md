@@ -21,3 +21,5 @@ plainmac roundtrip ~/Documents/*.docx ~/Documents/*.xlsx
 **Honest limits.** No page layout the way Word does it. No shapes, charts or pictures drawn in place. No macro engine — a macro survives the round trip, but Plain will not run it. Never opened in Microsoft Office; checked against the file format, against LibreOffice as an independent reader, and against the byte-for-byte round trip.
 
 Free and MIT licensed. No account, no cloud, no telemetry, no permissions to grant. The only network request is a daily check with GitHub for a newer version, which you can turn off in Settings.
+
+SHA-256 of the DMG: `21854758298b1b30436994dc6467f5d3d298a06e2f4efd42ac385b4845c3cb92`

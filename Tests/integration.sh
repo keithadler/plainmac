@@ -121,5 +121,6 @@ fi
 
 "$BIN" selftest >/dev/null 2>&1 && echo "ok    the checks pass" || { echo "FAIL  the checks pass"; fail=1; }
 
-[ $fail -eq 0 ] && echo "integration: all passed" || echo "integration: FAILURES"
+# Counted and phrased the way the family's release gate reads it: it looks for " 0 failed" on the last line.
+[ $fail -eq 0 ] && echo "integration: all passed, 0 failed" || echo "integration: FAILURES"
 exit $fail
