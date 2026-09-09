@@ -85,6 +85,9 @@ final class PlainModel: ObservableObject {
     /// What the selection adds up to, shown on the right of the status line.
     @Published var stats = ""
 
+    /// Which slide the deck view has in front, so the menu can act on it.
+    @Published var shownSlide = 1
+
     /// A newer version, when the daily check found one. Shown as one line, never as a dialog.
     @Published var newVersion: (version: String, page: URL)?
     @Published var failed: String?
@@ -176,6 +179,7 @@ final class PlainModel: ObservableObject {
             }
 
             preserved = try? Engine.preserved(path)
+            loadRules()
             var recent = Prefs.recent.filter { $0 != path }
             recent.insert(path, at: 0)
             Prefs.recent = recent
@@ -289,6 +293,44 @@ final class PlainModel: ObservableObject {
             ])
             stats = summary.said
         } catch { stats = "" }
+    }
+
+    /// The rules on the sheet, so a cell that only takes certain values can say what it wants.
+    ///
+    /// A cell that silently refuses what you type is worse than one that tells you. Plain does not draw Excel's
+    /// little arrow, but it can read the rule.
+    @Published var rules: [Engine.Rules.Rule] = []
+
+    func loadRules() {
+        guard let path, screen != nil else { rules = []; return }
+        rules = ((try? Engine.ask("choices", ["path": path])) as Engine.Rules?)?.rules ?? []
+    }
+
+    /// What this cell will accept, if anything says.
+    func ruleAt(column: Int, row: Int) -> Engine.Rules.Rule? {
+        let reference = "\(Reference.name(column))\(row)"
+        return rules.first { rule in
+            guard rule.sheet == (sheet ?? rule.sheet) else { return false }
+            return rule.where_.split(separator: " ").contains { part in
+                let ends = part.replacingOccurrences(of: "$", with: "").split(separator: ":")
+                guard let first = ends.first.map(String.init) else { return false }
+                let last = ends.count > 1 ? String(ends[1]) : first
+                return within(reference, from: first, to: last)
+            }
+        }
+    }
+
+    /// Is this cell inside that block? Compared on column and row rather than on the text of the reference.
+    private func within(_ cell: String, from: String, to: String) -> Bool {
+        func parts(_ s: String) -> (Int, Int)? {
+            let letters = s.prefix { $0.isLetter }
+            guard let row = Int(s.dropFirst(letters.count)), !letters.isEmpty else { return nil }
+            var column = 0
+            for c in letters.uppercased() { column = column * 26 + Int(c.asciiValue! - 64) }
+            return (column, row)
+        }
+        guard let (c, r) = parts(cell), let (c1, r1) = parts(from), let (c2, r2) = parts(to) else { return false }
+        return c >= min(c1, c2) && c <= max(c1, c2) && r >= min(r1, r2) && r <= max(r1, r2)
     }
 
     /// What is already in this column that starts the same way, for offering as you type.

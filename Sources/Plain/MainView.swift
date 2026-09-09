@@ -14,6 +14,10 @@ struct MainView: View {
     @State private var carrying = false
     @State private var tracing: String?
     @State private var replacing = false
+    @State private var about = false
+    @State private var inside = false
+    @State private var banding: Bool?
+    @State private var folderFind = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,6 +60,20 @@ struct MainView: View {
             TracePanel(cell: what.cell).environmentObject(model)
         }
         .sheet(isPresented: $replacing) { ReplacePanel().environmentObject(model) }
+        .sheet(isPresented: $about) { AboutPanel() }
+        .sheet(isPresented: $inside) { InsidePanel().environmentObject(model) }
+        .sheet(isPresented: $folderFind) { FolderPanel().environmentObject(model) }
+        .sheet(item: Binding(get: { banding.map(Band.init) }, set: { banding = $0?.header })) { which in
+            BandPanel(header: which.header).environmentObject(model)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .plainAbout)) { _ in about = true }
+        .onReceive(NotificationCenter.default.publisher(for: .plainInside)) { _ in inside = true }
+        .onReceive(NotificationCenter.default.publisher(for: .plainFolder)) { _ in folderFind = true }
+        .onReceive(NotificationCenter.default.publisher(for: .plainBand)) { note in
+            banding = note.object as? Bool
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .plainCompare)) { _ in compare() }
+        .onReceive(NotificationCenter.default.publisher(for: .plainSlide)) { note in slide(note.object as? String) }
         .onReceive(NotificationCenter.default.publisher(for: .plainTrace)) { note in
             tracing = note.object as? String
         }
@@ -281,6 +299,7 @@ private struct Carries: View {
     @EnvironmentObject var model: PlainModel
     @Environment(\.dismiss) private var dismiss
     @State private var found: [Engine.Hidden.Finding] = []
+    @State private var chosen: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -300,6 +319,16 @@ private struct Carries: View {
             } else {
                 List(Array(found.enumerated()), id: \.offset) { _, finding in
                     HStack {
+                        if finding.removable {
+                            Toggle("", isOn: Binding(
+                                get: { chosen.contains(finding.kind) },
+                                set: { on in
+                                    if on { chosen.insert(finding.kind) } else { chosen.remove(finding.kind) }
+                                }))
+                                .labelsHidden()
+                        } else {
+                            Image(systemName: "lock").foregroundStyle(.secondary)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(finding.what)
                             if !finding.removable {
@@ -315,8 +344,18 @@ private struct Carries: View {
             }
 
             HStack {
+                if !chosen.isEmpty {
+                    Text("Taking these out writes the file.").font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Take out what is ticked") {
+                    model.perform("clean", ["kinds": Array(chosen)])
+                    found = model.whatItCarries()
+                    chosen = []
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(chosen.isEmpty)
             }
             .padding(22)
         }
@@ -325,6 +364,184 @@ private struct Carries: View {
     }
 }
 
+
+extension MainView {
+    /// Compare what is open with another version of it, and say what changed.
+    func compare() {
+        guard let path = model.path else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = Files.opens
+        panel.message = "Which other version?"
+        guard panel.runModal() == .OK, let other = panel.url else { return }
+
+        struct Report: Decodable {
+            let same: Int
+            let note: String?
+            let parts: [Part]
+            let text: [Text_]
+            struct Part: Decodable { let name: String; let how: String }
+            struct Text_: Decodable { let text: String; let added: Bool
+                let where_: String
+                enum CodingKeys: String, CodingKey { case text, added, where_ = "where" }
+            }
+        }
+        do {
+            // The one open is the newer of the two, because that is what you are looking at.
+            let report: Report = try Engine.ask("compare", ["before": other.path, "after": path])
+            let changed = report.parts.count
+            model.said = changed == 0
+                ? "Nothing differs between them: \(report.same) parts are the same."
+                : "\(changed) part\(changed == 1 ? "" : "s") differ, \(report.same) are the same"
+                  + (report.text.isEmpty ? "." : ", and \(report.text.count) pieces of text changed.")
+        } catch {
+            model.failed = error.localizedDescription
+        }
+    }
+
+    /// The slide operations, which need to know which slide is in front.
+    func slide(_ how: String?) {
+        guard let how, let deck = model.deck else { return }
+        let at = model.shownSlide
+        switch how {
+        case "remove": model.perform("slide", ["how": "remove", "at": at])
+        case "earlier": model.perform("slide", ["how": "move", "at": at, "to": max(1, at - 1)])
+        case "later": model.perform("slide", ["how": "move", "at": at, "to": min(deck.slides.count, at + 1)])
+        default: break
+        }
+    }
+}
+
+/// Which band is being changed, so it can be handed to a sheet as an item.
+private struct Band: Identifiable {
+    let header: Bool
+    var id: Bool { header }
+}
+
+/// The words along the top or the bottom of every page, which most people never look at.
+private struct BandPanel: View {
+    @EnvironmentObject var model: PlainModel
+    @Environment(\.dismiss) private var dismiss
+    let header: Bool
+    @State private var text = ""
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(header ? "The page header" : "The page footer").font(.title3).bold()
+            Text("These appear on every page and are the thing people most often forget is there.")
+                .font(.callout).foregroundStyle(.secondary)
+
+            TextField("", text: $text).textFieldStyle(.roundedBorder)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Change it") {
+                    model.perform("band", ["header": header, "text": text])
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(22)
+        .frame(width: 460)
+        .onAppear {
+            guard !loaded, let path = model.path else { return }
+            loaded = true
+            struct Bands: Decodable {
+                let bands: [Band_]
+                struct Band_: Decodable { let part: String; let header: Bool; let which: String; let text: String }
+            }
+            if let bands: Bands = try? Engine.ask("bands", ["path": path]) {
+                text = bands.bands.first { $0.header == header }?.text ?? ""
+            }
+        }
+    }
+}
+
+/// Which files in a folder hold the words. It only ever reads.
+private struct FolderPanel: View {
+    @EnvironmentObject var model: PlainModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var folder: URL?
+    @State private var looking = ""
+    @State private var found: [Found] = []
+    @State private var looked = 0
+    @State private var searched = false
+
+    struct Found: Decodable, Identifiable {
+        let path: String, hits: Int
+        let where_: [String]
+        var id: String { path }
+        enum CodingKeys: String, CodingKey { case path, hits, where_ = "where" }
+    }
+    struct Report: Decodable { let looked: Int; let files: [Found] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Find in a whole folder").font(.title3).bold()
+            Text("Which Office files in a folder hold the words. It only reads: you open the ones that matter and "
+                 + "change them yourself.")
+                .font(.callout).foregroundStyle(.secondary)
+
+            HStack {
+                Button("Choose a folder…") {
+                    let panel = NSOpenPanel()
+                    panel.canChooseDirectories = true
+                    panel.canChooseFiles = false
+                    if panel.runModal() == .OK { folder = panel.url }
+                }
+                Text(folder?.lastPathComponent ?? "none chosen").foregroundStyle(.secondary)
+            }
+
+            TextField("What to look for", text: $looking)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(search)
+
+            if searched {
+                if found.isEmpty {
+                    Text("Nothing in \(looked) files.").foregroundStyle(.secondary)
+                } else {
+                    List(found) { file in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text((file.path as NSString).lastPathComponent)
+                                Spacer()
+                                Text("\(file.hits)").foregroundStyle(.secondary)
+                            }
+                            ForEach(file.where_.prefix(3), id: \.self) {
+                                Text($0).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.open(file.path); dismiss() }
+                    }
+                    .frame(height: 220)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Look") { search() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(folder == nil || looking.isEmpty)
+            }
+        }
+        .padding(22)
+        .frame(width: 560)
+    }
+
+    private func search() {
+        guard let folder, !looking.isEmpty else { return }
+        do {
+            let report: Report = try Engine.ask("folder", ["folder": folder.path, "find": looking])
+            found = report.files
+            looked = report.looked
+            searched = true
+        } catch { model.failed = error.localizedDescription }
+    }
+}
 
 /// A cell being traced, so it can be handed to a sheet as an item.
 private struct Traced: Identifiable {

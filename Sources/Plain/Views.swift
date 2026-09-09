@@ -196,8 +196,21 @@ struct SheetView: View {
                     SheetMenu(selection: $selection, column: column, row: row)
                         .environmentObject(model)
                 }
-                .help(cell?.formula.map { "= \($0)" } ?? "")
+                .help(helpFor(column, row, cell))
         }
+    }
+
+    /// What to say about a cell when the pointer rests on it: its formula, and what it will accept.
+    private func helpFor(_ column: Int, _ row: Int, _ cell: Engine.Screen.Cell?) -> String {
+        var said: [String] = []
+        if let formula = cell?.formula { said.append("= " + formula) }
+        if let rule = model.ruleAt(column: column, row: row) {
+            said.append(rule.allowed.isEmpty
+                        ? "This cell takes \(rule.kind)."
+                        : "This cell takes one of: " + rule.allowed.joined(separator: ", "))
+            if !rule.says.isEmpty { said.append(rule.says) }
+        }
+        return said.joined(separator: "\n")
     }
 
     private func commit(_ reference: String) {
@@ -229,6 +242,7 @@ enum Reference {
 struct DocumentView: View {
     @EnvironmentObject var model: PlainModel
     @State private var texts: [Int: String] = [:]
+    @State private var linking: Int?
 
     /// Runs of text, and the tables between them. A table's cells arrive as blocks that know which table, row and
     /// column they are in; laying them out in a line would turn a table into a list of its cells, which is what
@@ -291,6 +305,9 @@ struct DocumentView: View {
             .frame(maxWidth: 820, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .sheet(isPresented: Binding(get: { linking != nil }, set: { if !$0 { linking = nil } })) {
+            linkAsker
+        }
     }
 
     @ViewBuilder
@@ -307,6 +324,27 @@ struct DocumentView: View {
         .padding(.leading, block.kind == "ListItem" ? 22 : 0)
         .padding(.top, block.kind.hasPrefix("Heading") ? 12 : 0)
         .help(block.lossless ? "" : "This paragraph has formatting inside it that retyping would flatten.")
+        .contextMenu {
+            Button("Put a link on this paragraph…") { linking = block.index }
+            Button("Take the link off") { model.perform("link", ["how": "off", "block": block.index]) }
+            Divider()
+            Button("Add a row below, in its table") {
+                model.perform("tablerow", ["how": "add", "table": block.table, "row": block.row])
+            }
+            .disabled(block.table < 0)
+            Button("Take this table row out") {
+                model.perform("tablerow", ["how": "remove", "table": block.table, "row": block.row])
+            }
+            .disabled(block.table < 0)
+        }
+    }
+
+    /// Asking where a link should go. Only ordinary web and mail addresses; the engine refuses anything else.
+    @ViewBuilder
+    var linkAsker: some View {
+        if let block = linking {
+            LinkAsk(block: block, close: { linking = nil }).environmentObject(model)
+        }
     }
 
     private func font(for kind: String) -> Font {
@@ -323,12 +361,11 @@ struct DocumentView: View {
 
 struct DeckView: View {
     @EnvironmentObject var model: PlainModel
-    @State private var chosen = 1
     @State private var notes: [Int: String] = [:]
 
     var body: some View {
         HSplitView {
-            List(model.deck?.slides ?? [], id: \.number, selection: $chosen) { slide in
+            List(model.deck?.slides ?? [], id: \.number, selection: $model.shownSlide) { slide in
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Slide \(slide.number)").font(.caption).foregroundStyle(.secondary)
                     Text(slide.title.isEmpty ? "(no title)" : slide.title).lineLimit(1)
@@ -337,7 +374,7 @@ struct DeckView: View {
             }
             .frame(width: 220)
 
-            if let slide = model.deck?.slides.first(where: { $0.number == chosen }) {
+            if let slide = model.deck?.slides.first(where: { $0.number == model.shownSlide }) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         Text(slide.title).font(.system(size: 22, weight: .semibold))
@@ -404,6 +441,36 @@ enum Files {
         if panel.runModal() == .OK, let url = panel.url { model.open(url.path) }
     }
 
+    /// Save a sheet as comma separated values, the raw numbers rather than how they are shown.
+    @MainActor
+    static func csv(_ model: PlainModel) {
+        guard let path = model.path else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ((path as NSString).lastPathComponent as NSString)
+            .deletingPathExtension + ".csv"
+        if let csv = UTType(filenameExtension: "csv") { panel.allowedContentTypes = [csv] }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            struct Wrote: Decodable { let csv: String }
+            let made: Wrote = try Engine.ask("csv", ["path": path, "sheet": model.sheet ?? ""])
+            try made.csv.write(to: url, atomically: true, encoding: .utf8)
+            model.said = "Wrote \(url.lastPathComponent). Numbers as they are stored, not as they are shown."
+        } catch {
+            model.failed = error.localizedDescription
+        }
+    }
+
+    /// Put a picture into a document. Nothing is scaled or re-encoded.
+    @MainActor
+    static func picture(_ model: PlainModel) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .gif, .bmp]
+        panel.message = "Which picture?"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        model.perform("picture", ["from": url.path, "cm": 8])
+    }
+
     /// Save the file as a PDF. What Plain shows, not a facsimile of Word's pages, and it says so.
     @MainActor
     static func pdf(_ model: PlainModel) {
@@ -456,5 +523,38 @@ enum Files {
         } catch {
             model.failed = error.localizedDescription
         }
+    }
+}
+
+
+/// Where a link should go. Plain writes only what it would open itself.
+private struct LinkAsk: View {
+    @EnvironmentObject var model: PlainModel
+    let block: Int
+    let close: () -> Void
+    @State private var address = "https://"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Put a link on this paragraph").font(.title3).bold()
+            Text("Only ordinary web and mail addresses. Plain will not write into a document a link it would "
+                 + "refuse to open itself.")
+                .font(.callout).foregroundStyle(.secondary)
+
+            TextField("https://", text: $address).textFieldStyle(.roundedBorder)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
+                Button("Put it on") {
+                    model.perform("link", ["block": block, "address": address])
+                    close()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(address.count < 8)
+            }
+        }
+        .padding(22)
+        .frame(width: 460)
     }
 }

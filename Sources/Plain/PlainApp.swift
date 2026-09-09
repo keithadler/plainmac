@@ -35,6 +35,12 @@ extension Notification.Name {
     static let plainCarries = Notification.Name("plainCarries")
     static let plainTrace = Notification.Name("plainTrace")
     static let plainReplace = Notification.Name("plainReplace")
+    static let plainAbout = Notification.Name("plainAbout")
+    static let plainInside = Notification.Name("plainInside")
+    static let plainFolder = Notification.Name("plainFolder")
+    static let plainCompare = Notification.Name("plainCompare")
+    static let plainBand = Notification.Name("plainBand")
+    static let plainSlide = Notification.Name("plainSlide")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -99,6 +105,7 @@ struct PlainCommands: Commands {
                 .disabled(model.path == nil)
         }
         CommandGroup(replacing: .appInfo) {
+            Button("About Plain for Mac") { NotificationCenter.default.post(name: .plainAbout, object: nil) }
             Button("Check for a newer version now") {
                 Task { @MainActor in
                     Updates.lastCheck = nil
@@ -110,6 +117,53 @@ struct PlainCommands: Commands {
                 }
             }
         }
+        CommandMenu("File contents") {
+            Button("What else is in this file…") {
+                NotificationCenter.default.post(name: .plainInside, object: nil)
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
+            Button("What this file would carry with it…") {
+                NotificationCenter.default.post(name: .plainCarries, object: nil)
+            }
+            Divider()
+            Button("Word and character count") { model.perform("count", [:], needsSaveFirst: false) }
+            Button("Compare with another version…") {
+                NotificationCenter.default.post(name: .plainCompare, object: nil)
+            }
+            Button("Find in a whole folder…") {
+                NotificationCenter.default.post(name: .plainFolder, object: nil)
+            }
+            Divider()
+            Button("Save the sheet as CSV…") { Files.csv(model) }
+                .disabled(model.path == nil)
+        }
+
+        CommandMenu("Shape") {
+            Section("Document") {
+                Button("Add a row to the first table") { model.perform("tablerow", ["how": "add", "table": 0, "row": 0]) }
+                Button("Take a row out of the first table") { model.perform("tablerow", ["how": "remove", "table": 0, "row": 0]) }
+                Button("Change the page header…") {
+                    NotificationCenter.default.post(name: .plainBand, object: true)
+                }
+                Button("Change the page footer…") {
+                    NotificationCenter.default.post(name: .plainBand, object: false)
+                }
+                Button("Put a picture in…") { Files.picture(model) }
+            }
+            Section("Presentation") {
+                Button("Add a slide") { model.perform("slide", ["how": "add", "at": 0]) }
+                Button("Take this slide out") {
+                    NotificationCenter.default.post(name: .plainSlide, object: "remove")
+                }
+                Button("Move this slide earlier") {
+                    NotificationCenter.default.post(name: .plainSlide, object: "earlier")
+                }
+                Button("Move this slide later") {
+                    NotificationCenter.default.post(name: .plainSlide, object: "later")
+                }
+            }
+        }
+
         CommandGroup(replacing: .help) {
             Button("Plain Help") { Help.show() }
             Button("More from the Same Maker…") {
