@@ -78,6 +78,36 @@ enum Screenshots {
             window.orderOut(nil)
         }
 
+        // The panels. Each is a state nobody can summon on demand, and every one of them was written without
+        // being looked at once. Rendering them is how "it compiles" becomes "it is right".
+        do {
+            let model = PlainModel()
+            // A document that actually has comments and tracked changes in it, so the lists are photographed
+            // with something in them rather than showing their empty state.
+            let withNotes = URL(fileURLWithPath: "tests/fixtures/review.docx")
+            model.open(FileManager.default.fileExists(atPath: withNotes.path)
+                       ? withNotes.path
+                       : demo.appendingPathComponent("review.docx").path)
+
+            let panels: [(String, AnyView)] = [
+                ("about", AnyView(AboutPanel())),
+                ("inside", AnyView(InsidePanel().environmentObject(model))),
+                ("carries", AnyView(CarriesForShots().environmentObject(model))),
+            ]
+
+            for (name, panel) in panels {
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 540),
+                                      styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                window.contentView = NSHostingView(rootView: panel)
+                window.center()
+                window.makeKeyAndOrderFront(nil)
+                settle()
+                let out = folder.appendingPathComponent("panel-\(name).png")
+                if (try? capture(window, to: out)) != nil { CLI.out("wrote \(out.path)"); wrote += 1 }
+                window.orderOut(nil)
+            }
+        }
+
         if announce {
             CLI.err("promo cards are not written yet")
             return 2

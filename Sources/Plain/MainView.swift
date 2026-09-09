@@ -266,6 +266,7 @@ private struct FindBar: View {
                 .focused($focused)
                 .onAppear { focused = true }
                 .onSubmit(close)
+                .onChange(of: looking) { _, now in hits = model.find(now) }
 
             Text(found)
                 .font(.caption)
@@ -278,24 +279,22 @@ private struct FindBar: View {
         .padding(.vertical, 6)
     }
 
-    /// How many places hold it. Searching what is on screen rather than the file, because that is what is being
-    /// looked at, and it is instant.
+    /// How many places in the file hold it, and where the first few are.
+    ///
+    /// The engine is asked rather than the screen, because the window only ever holds part of a large sheet and
+    /// "find in this file" has to mean the file.
+    @State private var hits: [Engine.Hits.Hit] = []
+
     private var found: String {
-        guard !looking.isEmpty else { return "" }
-        let needle = looking.lowercased()
-        var n = 0
-        n += (model.screen?.cells ?? []).filter { $0.show.lowercased().contains(needle) }.count
-        n += (model.document?.blocks ?? []).filter { $0.text.lowercased().contains(needle) }.count
-        n += (model.deck?.slides ?? []).filter {
-            $0.title.lowercased().contains(needle) || $0.notes.lowercased().contains(needle)
-                || $0.lines.contains { $0.lowercased().contains(needle) }
-        }.count
-        return n == 0 ? "nothing" : "\(n) found"
+        if looking.isEmpty { return "" }
+        if hits.isEmpty { return "nothing" }
+        let first = hits.prefix(3).map { $0.sheet.isEmpty ? $0.reference : "\($0.sheet)!\($0.reference)" }
+        return "\(hits.count) found: " + first.joined(separator: ", ") + (hits.count > 3 ? "…" : "")
     }
 }
 
 /// Everything the file would take with it if you sent it, which is the question worth asking before you do.
-private struct Carries: View {
+struct Carries: View {
     @EnvironmentObject var model: PlainModel
     @Environment(\.dismiss) private var dismiss
     @State private var found: [Engine.Hidden.Finding] = []
@@ -337,7 +336,10 @@ private struct Carries: View {
                             }
                         }
                         Spacer()
-                        if finding.count > 1 { Text("\(finding.count)").foregroundStyle(.secondary) }
+                        // The description already begins with the number, so saying it again is noise.
+                        if finding.count > 1, !finding.what.hasPrefix("\(finding.count) ") {
+                            Text("\(finding.count)").foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .frame(minHeight: 200)
@@ -676,4 +678,10 @@ private struct UpdateBar: View {
         .padding(.vertical, 7)
         .background(Color.accentColor.opacity(0.10))
     }
+}
+
+
+/// The carries panel on its own, so the screenshot renderer can photograph it.
+struct CarriesForShots: View {
+    var body: some View { Carries() }
 }

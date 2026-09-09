@@ -295,6 +295,15 @@ final class PlainModel: ObservableObject {
         } catch { stats = "" }
     }
 
+    /// Everywhere in the whole file that holds what was typed.
+    ///
+    /// The window only ever holds part of a large sheet, so searching what is on screen finds what is on screen.
+    /// The engine reads the file, which is what "find in this file" has to mean.
+    func find(_ looking: String) -> [Engine.Hits.Hit] {
+        guard let path, !looking.isEmpty else { return [] }
+        return ((try? Engine.ask("search", ["path": path, "find": looking])) as Engine.Hits?)?.hits ?? []
+    }
+
     /// The rules on the sheet, so a cell that only takes certain values can say what it wants.
     ///
     /// A cell that silently refuses what you type is worse than one that tells you. Plain does not draw Excel's

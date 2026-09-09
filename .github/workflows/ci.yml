@@ -29,3 +29,8 @@ jobs:
 
       - name: The README's claims have to be true
         run: tests/docs.sh
+
+      # The mistake that kept happening was code that worked, wired to nothing. This asks, of every operation the
+      # engine knows, whether anywhere in the window can reach it.
+      - name: Every operation has a way to it
+        run: tests/reachable.sh

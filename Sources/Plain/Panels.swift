@@ -128,7 +128,9 @@ private struct CommentsList: View {
                             Text(note.when).foregroundStyle(.secondary).font(.caption)
                         }
                         Text(note.text)
-                        if !note.where_.isEmpty {
+                        // Where it is only worth saying when it says something: for a document comment the
+                        // engine has nowhere better to point than "comment", and repeating that helps nobody.
+                        if !note.where_.isEmpty, note.where_ != "comment" {
                             Text("on: \(note.where_)").font(.caption).foregroundStyle(.secondary)
                         }
                     }
