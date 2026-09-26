@@ -66,6 +66,7 @@ struct FileWindow: View {
     let path: String?
     @StateObject private var model = PlainModel()
     @State private var me = UUID()
+    @State private var place = WindowPlace()
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
@@ -76,6 +77,10 @@ struct FileWindow: View {
             .environmentObject(model)
             .frame(minWidth: 900, minHeight: 560)
             .navigationTitle(model.name)
+            // On macOS 27 the title above stays "Plain" after the file opens. The window then reads as blank to
+            // closeIfSpare, a second request for the same file cannot find its window, and the Window menu lists
+            // every window as "Plain". Setting the window's own title keeps all three working on every version.
+            .background(WindowTitle(title: model.name, place: place))
             .focusedSceneObject(model)
             .onAppear {
                 show()
@@ -102,8 +107,8 @@ struct FileWindow: View {
     private func show() {
         guard let path, !path.isEmpty, model.path == nil else { return }
         // A window put back from a previous session can name a file that has since been moved or deleted.
-        guard FileManager.default.fileExists(atPath: path) else { dismiss(); return }
-        guard app.claim(path, by: me) else { dismiss(); return }
+        guard FileManager.default.fileExists(atPath: path) else { leave(); return }
+        guard app.claim(path, by: me) else { leave(); return }
         model.open(path)
     }
 
@@ -117,7 +122,18 @@ struct FileWindow: View {
         guard (path ?? "").isEmpty, model.path == nil else { return }
         // Never the last one. An app with no window at all looks like an app that failed to start.
         guard NSApp.windows.contains(where: { $0.isVisible && $0.title != "Plain" }) else { return }
+        leave()
+    }
+
+    /// Closes this window. On macOS 27, `dismiss` asked while a new window is still being handed its file does
+    /// nothing, so opening a file that was already open brought its window forward and left a blank one behind.
+    /// The window itself is closed as well when it is still there a moment later.
+    private func leave() {
         dismiss()
+        let place = place
+        DispatchQueue.main.async {
+            if let window = place.window, window.isVisible { window.close() }
+        }
     }
 
     /// Files that arrived from the Finder before there was a window to put them in.
@@ -139,6 +155,47 @@ struct FileWindow: View {
         // Tells the windows that are still blank that they are now spare.
         app.opened += 1
     }
+}
+
+/// Puts a title on the window this view is in, and keeps it there as the title changes.
+///
+/// `navigationTitle` alone is not enough on macOS 27: it sets the first title and then stops following the model,
+/// and other code here finds windows by their titles.
+struct WindowTitle: NSViewRepresentable {
+    let title: String
+    var place: WindowPlace? = nil
+
+    func makeNSView(context: Context) -> Holder { Holder() }
+
+    func updateNSView(_ view: Holder, context: Context) {
+        view.title = title
+        view.place = place
+        place?.window = view.window
+        // SwiftUI may set its own title in the same pass, so this goes on the next turn of the run loop.
+        DispatchQueue.main.async { WindowTitle.apply(view.title, to: view.window) }
+    }
+
+    /// Also answers when it is put into a window, since the first update can come before there is one.
+    final class Holder: NSView {
+        var title = ""
+        var place: WindowPlace?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            place?.window = window
+            WindowTitle.apply(title, to: window)
+        }
+    }
+
+    @MainActor static func apply(_ title: String, to window: NSWindow?) {
+        guard let window, window.title != title else { return }
+        window.title = title
+    }
+}
+
+/// Which window a SwiftUI view ended up in, for the times a view has to act on its window directly.
+@MainActor
+final class WindowPlace {
+    weak var window: NSWindow?
 }
 
 /// The few things that belong to the whole app rather than to one open file.

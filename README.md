@@ -8,7 +8,7 @@ Opens Word, Excel and PowerPoint files. Edits the things you actually change. Ne
 
 ## Download
 
-**[Download Plain-for-Mac-1.0.0.dmg](https://github.com/keithadler/plainmac/releases/latest/download/Plain-for-Mac-1.0.0.dmg)** (macOS 14 or later, Apple Silicon and Intel)
+**[Download Plain-for-Mac-1.0.1.dmg](https://github.com/keithadler/plainmac/releases/latest/download/Plain-for-Mac-1.0.1.dmg)** (macOS 14 or later, Apple Silicon and Intel)
 
 Open the DMG, drag the app to Applications, open it. The first time, macOS says the app is from an unidentified
 developer: right-click the app, choose Open, then Open again. That is once.

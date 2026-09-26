@@ -8,6 +8,7 @@
 //  instead of taking the process down, and whether the promise still holds when the file is reached this way.
 
 import Foundation
+import AppKit
 
 enum EngineSuite {
 
@@ -330,6 +331,32 @@ enum EngineSuite {
             a.save()
             t.check(!a.dirty, "saving the first settles it")
             t.check(b.path == two, "and leaves the second where it was")
+        },
+
+        // On macOS 27 navigationTitle stopped following the model, every window stayed "Plain", and the code that
+        // finds windows by title (closing a spare blank one, bringing a file's window forward) found nothing.
+        TestCase(name: "a window is named for the file in it") { t in
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+                                  styleMask: [.titled], backing: .buffered, defer: true)
+            window.isReleasedWhenClosed = false
+            window.title = "Plain"
+
+            let model = PlainModel()
+            t.equal(model.name, "Plain", "a window with no file is called Plain")
+            model.open(try sampleDocument())
+            t.equal(model.name, "sample.docx", "and one with a file is called what the file is called")
+
+            let place = WindowPlace()
+            let holder = WindowTitle.Holder()
+            holder.title = model.name
+            holder.place = place
+            window.contentView?.addSubview(holder)
+            t.equal(window.title, "sample.docx", "the title is put on the window as soon as the view is in it")
+            t.check(place.window === window, "and the view knows which window it is in, to close it")
+
+            WindowTitle.apply("other.xlsx", to: window)
+            t.equal(window.title, "other.xlsx", "a later title replaces it")
+            WindowTitle.apply("other.xlsx", to: nil)
         },
     ])
 

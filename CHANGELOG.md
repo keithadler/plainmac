@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.1 (25 September 2026)
+
+Built and tested on macOS 27.
+
+- Windows are named for the file in them again. On macOS 27 every window stayed "Plain" after its file opened,
+  and three things that find windows by name stopped working: a blank window left over after opening a file from
+  the Finder was not closed, opening a file that was already open added a second blank window instead of just
+  bringing the first one forward, and the Window menu listed every window as "Plain". The window's title is now
+  set directly, and a window that has to close itself closes even when macOS 27 ignores the first request.
+- `build-app.sh` builds again with the Swift that comes with Xcode 27, which puts the built program in a
+  different folder. The script now asks where it is instead of assuming.
+- Word, Excel and PowerPoint samples were opened, read and saved on macOS 27 and came back byte for byte. The
+  app compiles with no warnings, and all 68 of its checks and the engine's 1,008 pass.
+
 ## 1.0.0 — 9 September 2026
 
 First public release.
